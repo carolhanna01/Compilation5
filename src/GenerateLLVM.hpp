@@ -25,12 +25,12 @@ string arithmeticOp(string op, bool is_signed){
 }
 
 string getRelopOp(string op) {
-    if (op == ">")  return "icmp sgt ";
-    if (op == ">=") return "icmp sge ";
-    if (op == "<")  return "icmp slt ";
-    if (op == "<=") return "icmp sle ";
-    if (op == "==") return "icmp eq ";
-    if (op == "!=") return "icmp ne ";
+    if (op == ">")  return "icmp sgt i32 ";
+    if (op == ">=") return "icmp sge i32 ";
+    if (op == "<")  return "icmp slt i32 ";
+    if (op == "<=") return "icmp sle i32 ";
+    if (op == "==") return "icmp eq i32 ";
+    if (op == "!=") return "icmp ne i32 ";
     return "";
 }
 
