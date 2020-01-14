@@ -28,7 +28,7 @@ string genLabel() {
     return CodeBuffer::instance().genLabel();
 }
 
-vector<bp_pair> makelist(bp_pair item) {
+vector<bp_pair> makeList(bp_pair item) {
     return CodeBuffer::instance().makelist(item);
 }
 
@@ -116,7 +116,7 @@ public:
             */
 
             exitProgram();
-            bpatch(makelist(make_pair(errorLabel, FIRST)),genLabel());
+            bpatch(makeList(bp_pair(errorLabel, FIRST)),genLabel());
         }
         string resultReg= freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);

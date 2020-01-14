@@ -34,7 +34,7 @@
 	void addScope (stack<Scope*>& scopes, stack<int>& offsets);
 	void removeScope (stack<Scope*>& scopes, stack<int>& offsets);
 	bool isInString(string target, string search); 
-	void generateBinopOp(YYSTYPE left, YYSTYPE right, YYSTYPE res, string op);
+	void generateBinopOp(YYSTYPE left, YYSTYPE right, YYSTYPE res, YYSTYPE operation);
 
 	/* DEBUG DECLERATION AREA */
 	using std::cout;
@@ -375,11 +375,11 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 				|	STRING {$$ = new variableEntry("", "STRING");}
 				|	TRUE {
 						$$ = new variableEntry("", "BOOL");
-						$$->trueList = makeList(bp_pair(emitUnconditional(), FIRST))
+						$$->trueList = makeList(bp_pair(emitUnconditional(), FIRST));
 					}
 				|	FALSE {
 						$$ = new variableEntry("", "BOOL");
-						$$->falseList = makeList(bp_pair(emitUnconditional(), FIRST))
+						$$->falseList = makeList(bp_pair(emitUnconditional(), FIRST));
 					}
 				|	NOT Exp {
 						$$ = dealwithBoolOutput(vecstr{"BOOL"}, $2);
@@ -433,7 +433,7 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 
 // MISC 
 M 				:	{
-						$$ = new markerNode();
+						$$ = new markerEntry();
 						$$->label = genLabel();
 				};	
 
@@ -616,11 +616,11 @@ YYSTYPE dealWithBinop(YYSTYPE left, YYSTYPE right) {
 	return new variableEntry("", type);
 }
 
-void generateBinopOp(YYSTYPE left, YYSTYPE right, YYSTYPE res, string op){
+void generateBinopOp(YYSTYPE left, YYSTYPE right, YYSTYPE res, YYSTYPE operation){
 	if (left->type == "BYTE" && right->type == "BYTE") {
-		res->reg = generator.binop(left->reg, right->reg, op, false);
+		res->reg = generator.binop(left->reg, right->reg, operation->op, false);
 	} else {
-		res->reg = generator.binop(left->reg, right->reg, op, true);
+		res->reg = generator.binop(left->reg, right->reg, operation->op, true);
 	}
 }
 
