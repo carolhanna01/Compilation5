@@ -27,7 +27,17 @@ namespace scopeTables{
             t type;
             int offset;
             int value;
-            entry(string name="", t type= t(), int offset=0, int value=0):name(name), type(type), offset(offset), value(value){};
+            string reg;
+            string label;
+            string op;
+            vector<int> trueList;
+            vector<int> falseList;
+            entry(string name="", t type= t(), int offset=0, int value=0, string op= ""):name(name), type(type), offset(offset), value(value), op(op),
+                        reg(""), label(""){
+                this->trueList = vector<int>();
+                this->falseList = vector<int>();
+
+            };
         };
 
         class functionType {
