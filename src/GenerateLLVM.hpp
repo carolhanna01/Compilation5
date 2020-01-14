@@ -102,9 +102,9 @@ public:
         emitData("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')") //todo: is this how the print function works?
     }
 
-    int binop(int r1, int r2, string op, bool isSigned){
+    int binop(string r1, string r2, string op, bool isSigned){
         if(op == "/"){
-            int errorLabel = emit(getRelopOp("!=") + "0" + r2 + ", " +"@");
+            int errorLabel = emitCondition("0", "!=",  r2 );
             /* todo: work on this when you implement the stack and understand it
             emit("la " + r1 + ", division_by_zero");
             push(r1);
@@ -117,10 +117,9 @@ public:
         int resultReg= freshReg();
         emit(resultReg + " = " getArithmeticOp(op, is_signed) + " " + r1 + ", " + r2);
 
-        /* todo: dealing with unsigned
         if(!isSigned)
-            emit("and " + r1 + ", 255");
-        */
+            emit("and i32 " + r1 + ", 255");
+
         return r1;
     }
 };
