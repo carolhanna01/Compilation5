@@ -1,0 +1,19 @@
+enum days {SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY};
+
+void checkDay(enum days e1) {
+	if ((int) e1 == 2) {
+		print("~IT'S TAAACO TUUUUUUESDAAAAY!~");
+		print("One taco for me please!");
+		int i = 0;
+		while (i < (int) e1) {
+			print("Another taco for me please!");
+			i = i + 1;
+		}
+	}
+}
+
+void main()
+{
+	enum days d = TUESDAY;
+	checkDay(d);
+}
