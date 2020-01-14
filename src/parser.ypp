@@ -18,6 +18,7 @@
 	variableEntry newVariable = variableEntry();
 	enumEntry newEnum = enumEntry();
 	int funcParamOffset = -1;
+	GenerateLLVM generator;
 
     bool insideWhileLoop(stack<Scope*>* scopes);
     enumEntry* enumIdentifierSearch(stack<Scope*> *scopes, string name);
@@ -327,12 +328,22 @@ Type 			:	INT{$$ = new variableEntry("", "INT");}
 EnumType 		:	ENUM ID {$$ = new variableEntry("", "enum " + $2->name);};
 	
 Exp 			:	LPAREN Exp RPAREN {$$= $2;}
-				|	Exp MUL Exp {$$ = dealWithBinop($1, $3);}
-				|	Exp DIV Exp {$$ = dealWithBinop($1, $3);}
+				|	Exp MUL Exp {
+				        $$ = dealWithBinop($1, $3);
+						generateBinopOp($1, $3, $$, $2);
+				    }
+				|	Exp DIV Exp {
+						$$ = dealWithBinop($1, $3);
+						generateBinopOp($1, $3, $$, $2);
+					}
 				|	Exp ADD Exp {
 						$$ = dealWithBinop($1, $3);
+						generateBinopOp($1, $3, $$, $2);
 					}
-				|	Exp SUB Exp {$$ = dealWithBinop($1, $3);}
+				|	Exp SUB Exp {
+						$$ = dealWithBinop($1, $3);
+						generateBinopOp($1, $3, $$, $2);
+					}
 				|	ID {
 						enumEntry* enum_entry = enumIdentifierSearch(&scopes, $1->name);
 						variableEntry* var = variableSearch(&scopes, $1->name);
@@ -565,6 +576,14 @@ YYSTYPE dealWithBinop(YYSTYPE left, YYSTYPE right) {
 	}
 	string type = left->type == "BYTE" && right->type == "BYTE" ? "BYTE" : "INT";
 	return new variableEntry("", type);
+}
+
+void generateBinopOp(YYSTYPE left, YYSTYPE right, YYSTYPE res, string op){
+	if (left->type == "BYTE" && right->type == "BYTE") {
+		res->reg = generatpr.binop(left->reg, right->reg, op, false);
+	} else {
+		res->reg = generatpr.binop(left->reg, right->reg, op, true);
+	}
 }
 
 bool isInVector(vector<string> vec, string str) {
