@@ -96,6 +96,9 @@ int emitCondition(string r1, string op, string r2) {
     return emit("br i1 " +  resReg + ", label @, label @");
 }
 
+int emitUnconditional() {
+    return emit("br label @");
+}
 
 class GenerateLLVM{
 public:

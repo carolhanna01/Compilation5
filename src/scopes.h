@@ -67,6 +67,7 @@ namespace scopeTables{
     typedef entry<functionType> functionEntry;
     typedef entry<enumType> enumEntry;
     typedef entry<string> operationEntry;
+    typedef entry<string> markerEntry;
 
     class Scope{
             public:
