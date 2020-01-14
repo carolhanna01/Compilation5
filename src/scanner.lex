@@ -56,12 +56,30 @@ continue 							return CONTINUE;
 \{									return LBRACE;
 \}									return RBRACE;
 =									return ASSIGN;
-{relational}						return RELATION;			
-{equality}							return EQUALITY;			
-\*									return MUL;
-\/									return DIV;
-\-									return SUB;
-\+									return ADD;
+{relational}						{
+										yylval = new operationEntry(yytext); 
+										return RELATION;	
+									}		
+{equality}							{
+										yylval = new operationEntry(yytext); 
+										return EQUALITY;
+									}	
+\*									{
+										yylval = new operationEntry(yytext); 
+										return MUL;
+									}
+\/									{
+										yylval = new operationEntry(yytext); 
+										return DIV;
+									}
+\-									{
+										yylval = new operationEntry(yytext); 
+										return SUB;
+									}
+\+									{
+										yylval = new operationEntry(yytext); 
+										return ADD;
+									}
 {letter}({letter}|{digit})*			{
 										yylval = new variableEntry(yytext);
 										return ID;
