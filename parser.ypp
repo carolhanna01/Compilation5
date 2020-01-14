@@ -38,7 +38,8 @@
 	using std::cin;
 	using std::endl;
 	void printScopes(stack<Scope*>* scopes);
-	// TODO - go to lexer and remove STAN thing.
+	void printVector(const vector<string>& vec);
+
 %}
 
 %token	  VOID
@@ -75,7 +76,6 @@
 	Doneth list - 1, 2, 3, 4, 11, 12, 13
 */ 
 
-//TODO - offsets!
 %% /*Rules*/
 Program			:	Enums Funcs;
 
@@ -126,13 +126,12 @@ FormalDecl 		:	Type ID {
                             errorDef(yylineno, $2->name);
                             exit(0);
                         }
-                        if (variableSearch(&scopes, $2->name)  || functionSearch(&scopes, $2->name)
+                        if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name)
                         || ($2->name == scopes.top()->currentFunc->name) || (enumSearch(&scopes, "enum " + $2->name))
                                || enumIdentifierSearch(&scopes, $2->name)){
                             errorDef(yylineno, $2->name);
                             exit(0);
                         }
-						//TODO can var be func name?'
                         newVariable = variableEntry($2->name, $1->type,  funcParamOffset--);
 						scopes.top()->insertVariable(newVariable);
                         scopes.top()->currentFunc->type.addParam($1->type);
@@ -142,7 +141,7 @@ FormalDecl 		:	Type ID {
 				        if(!enumSearch(&scopes, $1->type)){
 							errorUndefEnum(yylineno, $1->type.substr(5));
 							exit(0);
-						}else if(enumIdentifierSearch(&scopes, $2->name)){
+						} else if(enumIdentifierSearch(&scopes, $2->name)){
 						    errorDef(yylineno, $2->name);
                             exit(0);
 						}
@@ -173,11 +172,11 @@ Enumerator		:	ID
 Statements		:	Statement
 				|	Statements Statement;
 
-Statement		:	LBRACE {
-						addScope(scopes, offsets);
-					} Statements {
-						removeScope(scopes, offsets);
-					} RBRACE
+Statement		:	LBRACE ADD_SCOPE
+						// addScope(scopes, offsets);
+					/*}*/ Statements REMOVE_SCOPE /*{*/
+						// removeScope(scopes, offsets);
+					/*}*/ RBRACE
 				|	Type ID SC {
 						if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name) || enumSearch(&scopes, "enum " + $2->name) || enumIdentifierSearch(&scopes, $2->name)) {
 							errorDef(yylineno, $2->name);
@@ -201,13 +200,13 @@ Statement		:	LBRACE {
 					}
 
 				|	EnumDecl
-				|	Type ID ASSIGN Exp SC {  // TODO - check if all Exp result in adding to scope as requested.
+				|	Type ID ASSIGN Exp SC { 
 						if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name)) {
 							errorDef(yylineno, $2->name);
 							exit(0);
 						}
 						else if ($1->type != $4 ->type && ($1->type != "INT" || $4->type != "BYTE")) {
-						    errorMismatch(yylineno); //TODO check
+						    errorMismatch(yylineno); 
 							exit(0);
 						}
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
@@ -217,9 +216,10 @@ Statement		:	LBRACE {
 				|	EnumType ID ASSIGN Exp SC {
 						enumEntry* enum_entry = enumSearch(&scopes, $1->type);
 						if (!enum_entry) {
-							errorUndefEnum(yylineno, $2->name);
+							errorUndefEnum(yylineno, $1->type.substr(5));
 							exit(0);
-						} else if (variableSearch(&scopes, $2->name)) {
+						}
+						else if (variableSearch(&scopes, $2->name)) {
 							errorDef(yylineno, $2->name);
 							exit(0);
 						}
@@ -237,7 +237,7 @@ Statement		:	LBRACE {
 							errorUndef(yylineno, $1->name);
 							exit(0);
 						} 
-						else if (isInString(var->type, "enum") && $3->type != var->name) {
+						else if (isInString(var->type, "enum") && $3->type != var->type) {
 							errorUndefEnumValue(yylineno, $1->name);
 							exit(0);
 						}
@@ -270,13 +270,9 @@ Statement		:	LBRACE {
 						    errorMismatch(yylineno);
 							exit(0);
 						}
-					} RPAREN {
-						addScope(scopes, offsets);
+					} RPAREN ADD_SCOPE {
 						scopes.top()->insideLoop = true;
-					} Statement {
-						removeScope(scopes, offsets);
-
-					}
+					} Statement REMOVE_SCOPE 
 				|	BREAK SC {
 						if(!insideWhileLoop(&scopes)){
 							errorUnexpectedBreak(yylineno);
@@ -309,37 +305,40 @@ Call 			:	ID LPAREN {funcParameterStack.push(vector<string>());} ExpList RPAREN 
 							errorUndefFunc(yylineno, $1->name);
 							exit(0);
 						} else if (f->type.paramTypes.size() != 0) {
-							errorPrototypeMismatch(yylineno, $1->name, f->type.paramTypes); //todo: make sure this line is ok
+							errorPrototypeMismatch(yylineno, $1->name, f->type.paramTypes); 
 							exit(0);
 						}
 						$$ = new variableEntry("", f->type.returnType);
 					};
 
 ExpList 		:	Exp {
-						funcParameterStack.top().push_back($1->type);
+						vector<string>& parameters = funcParameterStack.top();
+						parameters.insert(parameters.begin(), $1->type);
 					}
 				|	Exp COMMA ExpList {
-						funcParameterStack.top().push_back($1->type);
+						vector<string>& parameters = funcParameterStack.top();
+						parameters.insert(parameters.begin(), $1->type);
 					};
 
 Type 			:	INT{$$ = new variableEntry("", "INT");}
 				|	BYTE{$$ = new variableEntry("", "BYTE");}
-							//todo: add errorCheck for byte value (need to add field to entry?)}
 				|	BOOL{$$ = new variableEntry("", "BOOL");};
 	
 EnumType 		:	ENUM ID {$$ = new variableEntry("", "enum " + $2->name);};
 	
 Exp 			:	LPAREN Exp RPAREN {$$= $2;}
-				|	Exp MUL Exp {$$ = dealWithBinop($1, $2);}
-				|	Exp DIV Exp {$$ = dealWithBinop($1, $2);}
-				|	Exp ADD Exp {$$ = dealWithBinop($1, $2);}
-				|	Exp SUB Exp {$$ = dealWithBinop($1, $2);}
+				|	Exp MUL Exp {$$ = dealWithBinop($1, $3);}
+				|	Exp DIV Exp {$$ = dealWithBinop($1, $3);}
+				|	Exp ADD Exp {
+						$$ = dealWithBinop($1, $3);
+					}
+				|	Exp SUB Exp {$$ = dealWithBinop($1, $3);}
 				|	ID {
 						enumEntry* enum_entry = enumIdentifierSearch(&scopes, $1->name);
 						variableEntry* var = variableSearch(&scopes, $1->name);
 						if (enum_entry) {
 							int enum_value = getEnumValue(enum_entry->type.values, $1->name);
-							$$ = new variableEntry("", enum_entry->name, 0, enum_value);
+							$$ = new variableEntry($1->name, enum_entry->name, 0, enum_value);
 						}
 						else if (var) {
 							$$ = new variableEntry(var->name, var->type, var->offset, var->value);
@@ -348,7 +347,6 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 							errorUndef(yylineno, $1->name);
 							exit(0);
 						}
-						$$->name=$1->name;
 					}  
 				|	Call { 
 						$$ = $1; 
@@ -371,11 +369,11 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 				|	Exp RELATION Exp {$$ = dealwithBoolOutput(vecstr{"BYTE", "INT"}, $1, $3);}
 				|	LPAREN Type RPAREN Exp { 
 						if ($2->type != "INT") { // CONVERSION IS NOT TO INT
-						    errorMismatch(yylineno); //TODO - is this the right error?
+						    errorMismatch(yylineno); 
 							exit(0);
-						} //TODO - make sure all enum assignments get requested value.
-						variableEntry* var = variableSearch(&scopes, $4->name); //TODO - below assumes a variable cant have an enum name. True?
-						enumEntry* enum_entry = enumIdentifierSearch(&scopes, $4->name); //TODO - make sure i cant insert same enum values for more than one enum.
+						} 
+						variableEntry* var = variableSearch(&scopes, $4->name);
+						enumEntry* enum_entry = enumIdentifierSearch(&scopes, $4->name);
 						if (var && isInString(var->type, "enum")) { // CONVERSION IS FROM VARIABLE
 							$$ = new variableEntry("", "INT", 0, var->value);
 						}
@@ -391,7 +389,9 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 
 
 ADD_SCOPE 		:	{
+						functionEntry* tmp = scopes.top()->currentFunc;
 						addScope(scopes, offsets);
+						scopes.top()->currentFunc = tmp;
 				};
 
 REMOVE_SCOPE 	:	{
@@ -438,10 +438,7 @@ main(){
 		errorMainMissing();
 		return 0;
 	}
-	// GLOBAL SCOPE DE-INIT
-	Scope* global_scope = scopes.top();
 	removeScope(scopes, offsets);
-	global_scope->printFunctions();
 	return 0;
 }
 
@@ -473,8 +470,11 @@ functionEntry* functionSearch(stack<Scope*> *scopes, string name) {
 	}
 
 	functionEntry* entry = scopes->top()->getFunction(name);
+	functionEntry* scopeCurrentFunc = scopes->top()->currentFunc;
 	if (entry) {
 		return entry;
+	} else if (scopeCurrentFunc->name == name) {
+		return scopeCurrentFunc;
 	}
 
 	Scope* s = scopes->top();
@@ -558,8 +558,9 @@ YYSTYPE dealwithBoolOutput(vector<string> check_for, YYSTYPE left, YYSTYPE right
 }
 
 YYSTYPE dealWithBinop(YYSTYPE left, YYSTYPE right) {
-	if ((left->type != "INT" && right->type != "BYTE") || (left->type != "INT" && right->type != "BYTE")) {
-		errorMismatch(yylineno); //TODO check
+	if ((left->type != "INT" || right->type != "BYTE") && (left->type != "BYTE" || right->type != "INT") &&
+	 ((right->type != "BYTE" && left->type != "BYTE") && ( right->type != "INT" && left->type != "INT"))) {
+		errorMismatch(yylineno); 
 		exit(0);
 	}
 	string type = left->type == "BYTE" && right->type == "BYTE" ? "BYTE" : "INT";
@@ -578,6 +579,7 @@ void addScope (stack<Scope*>& scopes, stack<int>& offsets){
 void removeScope (stack<Scope*>& scopes, stack<int>& offsets){
     endScope();
     scopes.top()->printVariables();
+    scopes.top()->printFunctions();
     scopes.top()->printEnums();
     scopes.pop();
     offsets.pop();
@@ -623,4 +625,11 @@ void printScopes(stack<Scope*>* scopes) {
 
 bool isInString(string target, string search) {
 	return (target.find(search) != string::npos);
+}
+
+void printVector(const vector<string>& vec) {
+	for (vector<string>::const_iterator i = vec.begin(); i != vec.end(); ++i) {
+    	cout << *i << ' ';
+	}
+    cout << endl;
 }
