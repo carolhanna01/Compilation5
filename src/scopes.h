@@ -30,8 +30,8 @@ namespace scopeTables{
             string reg;
             string label;
             string op;
-            vector<int> trueList;
-            vector<int> falseList;
+            vector<pair<int,BranchLabelIndex> trueList;
+            vector<pair<int,BranchLabelIndex> falseList;
             entry(string name="", t type= t(), int offset=0, int value=0, string op= ""):name(name), type(type), offset(offset), value(value), op(op),
                         reg(""), label(""){
                 this->trueList = vector<int>();

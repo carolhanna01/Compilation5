@@ -56,6 +56,13 @@ void addExitPrintFunctions(){
 
 }
 
+int emitCondition(string r1, string op, string r2) {
+    string resReg = freshReg();
+    emit(resReg + " = " + getRelopOp(r1) + r1 + ", " + r2);
+    return emit("br i1 " +  resReg + ", label @, label @");
+}
+
+
 class GenerateLLVM{
 public:
     int binop(int r1, int r2, string op, string type, bool is_signed){
