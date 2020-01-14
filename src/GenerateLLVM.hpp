@@ -7,18 +7,18 @@
 
 using namespace std;
 using namespace output;
+typedef pair<int,BranchLabelIndex> bp_pair;
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Wrapping bp header functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-
 int emit(const string &s){
     return CodeBuffer::instance().emit(s);
 }
 
-void emitData(const std::string& dataLine){
-    CodeBuffer::instance().emitData(dataLine);
+void emitGlobal(const std::string& s){
+    CodeBuffer::instance().emitGlobal(s);
 }
 
-void bpatch(const vector<int>& l, const std::string &label) {
+void bpatch(const vector<bp_pair>& l, const string &label) {
     CodeBuffer::instance().bpatch(l, label);
 
 
@@ -26,14 +26,14 @@ string genLabel() {
     return CodeBuffer::instance().genLabel();
 }
 
-vector<int> makelist(int litem) {
-    return CodeBuffer::instance().makelist(litem);
+vector<bp_pair> makelist(bp_pair item) {
+    return CodeBuffer::instance().makelist(item);
 }
 
-vector<int> merge(const vector<int> &l1,const vector<int> &l2) {
+vector<bp_pair> merge(const vector<bp_pair> &l1,const vector<bp_pair> &l2) {
     return CodeBuffer::instance().merge(l1, l2);
 }
-/*                                             ~~~~~~~~~                                        */
+/*                                         ~~~~~~~~~                                        */
 
 string toString(int num) {
         stringstream ss;
@@ -72,7 +72,7 @@ void exitProgram(){
 }
 
 void addExitPrintFunctions(){
-8
+
     emit("declare i32 @printf(i8*, ...)");
     emit("declare void @exit(i32)");
     emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
