@@ -8,14 +8,47 @@
 using namespace std;
 using namespace output;
 
-int freshReg(){
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Wrapping bp header functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+int emit(const string &s){
+    return CodeBuffer::instance().emit(s);
+}
+
+void emitData(const std::string& dataLine){
+    CodeBuffer::instance().emitData(dataLine);
+}
+
+void bpatch(const vector<int>& l, const std::string &label) {
+    CodeBuffer::instance().bpatch(l, label);
+
+
+string genLabel() {
+    return CodeBuffer::instance().genLabel();
+}
+
+vector<int> makelist(int litem) {
+    return CodeBuffer::instance().makelist(litem);
+}
+
+vector<int> merge(const vector<int> &l1,const vector<int> &l2) {
+    return CodeBuffer::instance().merge(l1, l2);
+}
+/*                                             ~~~~~~~~~                                        */
+
+string toString(int num) {
+        stringstream ss;
+        ss << num;
+        return ss.str();
+}
+
+string freshReg(){
     static int regCount=-1;
     regCount++;
-    return "r" + regCount;
+    return "%r" + toString(regCount);
 }
 
 
-string arithmeticOp(string op, bool is_signed){
+string getArithmeticOp(string op, bool is_signed){
 
     if (op == "+") return "add ";
     if (op == "-") return "sub ";
@@ -39,7 +72,7 @@ void exitProgram(){
 }
 
 void addExitPrintFunctions(){
-
+8
     emit("declare i32 @printf(i8*, ...)");
     emit("declare void @exit(i32)");
     emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
@@ -65,15 +98,27 @@ int emitCondition(string r1, string op, string r2) {
 
 class GenerateLLVM{
 public:
-    int binop(int r1, int r2, string op, string type, bool is_signed){
+    GenerateLLVM(){
+        emitData("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')") //todo: is this how the print function works?
+    }
+
+    int binop(int r1, int r2, string op, bool isSigned){
         if(op == "/"){
-            //add treatment for division by zero
+            int errorLabel = emit(getRelopOp("!=") + "0" + r2 + ", " +"@");
+            /* todo: work on this when you implement the stack and understand it
+            emit("la " + r1 + ", division_by_zero");
+            push(r1);
+            emit("jal print");
+            */
+
+            exitProgram();
+            bpatch(makelist(errorLabel),genLabel());
         }
         int resultReg= freshReg();
-        emit(resultReg + " = " arithmeticOp(op, is_signed) + " " + r1 + ", " + r2);
+        emit(resultReg + " = " getArithmeticOp(op, is_signed) + " " + r1 + ", " + r2);
 
         /* todo: dealing with unsigned
-        if(!is_signed)
+        if(!isSigned)
             emit("and " + r1 + ", 255");
         */
         return r1;
