@@ -1,0 +1,635 @@
+%{
+	/* Declarations section */
+	#include <iostream>
+	#include <stdlib.h>
+	#include <algorithm>
+	#include "scopes.h"
+
+	using namespace output;
+	using namespace scopeTables;
+
+	extern int yylex();
+	int yyerror(const char * message);
+	typedef vector<string> vecstr;
+
+	stack<Scope*> scopes;
+	stack<int> offsets;
+	stack<vector<string>> funcParameterStack;
+	variableEntry newVariable = variableEntry();
+	enumEntry newEnum = enumEntry();
+	int funcParamOffset = -1;
+
+    bool insideWhileLoop(stack<Scope*>* scopes);
+    enumEntry* enumIdentifierSearch(stack<Scope*> *scopes, string name);
+	variableEntry* variableSearch(stack<Scope*> *scopes, string name);
+	functionEntry* functionSearch(stack<Scope*> *scopes, string name);
+    enumEntry* enumSearch(stack<Scope*> *scopes, string name);
+	bool similarParameters(const vector<string>& expected, const vector<string>& actual);
+	int getEnumValue(const vector<string>& enumerations, const string& name);
+	YYSTYPE dealWithBinop(YYSTYPE left, YYSTYPE right);
+	YYSTYPE dealwithBoolOutput(vector<string> check_for, YYSTYPE left,  YYSTYPE right = NULL);
+	bool isInVector(vector<string> vec, string str);
+	void addScope (stack<Scope*>& scopes, stack<int>& offsets);
+	void removeScope (stack<Scope*>& scopes, stack<int>& offsets);
+	bool isInString(string target, string search); 
+
+	/* DEBUG DECLERATION AREA */
+	using std::cout;
+	using std::cin;
+	using std::endl;
+	void printScopes(stack<Scope*>* scopes);
+	void printVector(const vector<string>& vec);
+
+%}
+
+%token	  VOID
+%token    INT
+%token    BYTE
+%token    B
+%token    BOOL
+%token    RETURN
+%token    WHILE
+%token    BREAK
+%token    CONTINUE
+%token    SC
+%token	  ENUM
+%token    COMMA
+%token    LBRACE
+%token    RBRACE
+%token    NUM
+%token    STRING
+%right    ASSIGN
+%left	  OR
+%left     AND
+%left	  EQUALITY
+%nonassoc RELATION
+%left	  ADD SUB
+%left     MUL DIV
+%right    NOT
+%right	  LPAREN RPAREN
+%right ID
+%nonassoc IF
+%nonassoc ELSE
+%left TRUE FALSE
+
+/*
+	Doneth list - 1, 2, 3, 4, 11, 12, 13
+*/ 
+
+%% /*Rules*/
+Program			:	Enums Funcs;
+
+Funcs			:	/*epsilon*/
+				|	FuncDecl Funcs;	
+			
+FuncDecl		:	RetType ID {
+						if (scopes.top()->getVariable($2->name) || scopes.top()->getFunction($2->name) || enumIdentifierSearch(&scopes, $2->name)
+						    || enumSearch(&scopes, "enum " + $2->name)) {
+							errorDef(yylineno, $2->name);
+							exit(0);
+						}
+						addScope(scopes, offsets);
+						scopes.top()->currentFunc->name = $2->name;
+						scopes.top()->currentFunc->type.returnType = $1->type;
+						scopes.top()->currentFunc->type.paramTypes = vector<string>();
+						funcParamOffset = -1;
+					} LPAREN Formals RPAREN LBRACE Statements RBRACE {
+						functionEntry new_function(*(scopes.top()->currentFunc));
+						removeScope(scopes, offsets);
+						scopes.top()->insertFunction(new_function);
+					};
+
+Enums			:	/*epsilon*/{};
+				|	EnumDecl Enums {};
+
+EnumDecl		:	ENUM ID {
+						if (enumSearch(&scopes, "enum " + $2->name) || variableSearch(&scopes, $2->name)) {
+							errorDef(yylineno, $2->name);
+							exit(0);
+						}
+						newEnum.name = "enum " + $2->name;
+					} LBRACE EnumeratorList RBRACE SC {
+						scopes.top()->insertEnum(newEnum);
+					};
+	
+RetType			:	Type {$$ = $1;}
+				|	VOID {$$ = new variableEntry("", "VOID");};
+	
+Formals			:	/*epsilon*/
+				|	FormalsList;
+			
+FormalsList		:	FormalDecl
+				|	FormalDecl COMMA FormalsList;
+	
+FormalDecl 		:	Type ID {
+                        if(enumSearch(&scopes, "enum " + $1->name)){
+                            errorDef(yylineno, $2->name);
+                            exit(0);
+                        }
+                        if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name)
+                        || ($2->name == scopes.top()->currentFunc->name) || (enumSearch(&scopes, "enum " + $2->name))
+                               || enumIdentifierSearch(&scopes, $2->name)){
+                            errorDef(yylineno, $2->name);
+                            exit(0);
+                        }
+                        newVariable = variableEntry($2->name, $1->type,  funcParamOffset--);
+						scopes.top()->insertVariable(newVariable);
+                        scopes.top()->currentFunc->type.addParam($1->type);
+
+					}
+				|	EnumType ID {
+				        if(!enumSearch(&scopes, $1->type)){
+							errorUndefEnum(yylineno, $1->type.substr(5));
+							exit(0);
+						} else if(enumIdentifierSearch(&scopes, $2->name)){
+						    errorDef(yylineno, $2->name);
+                            exit(0);
+						}
+						newVariable = variableEntry($2->name, $1->type, funcParamOffset--);
+						scopes.top()->insertVariable(newVariable);
+						scopes.top()->currentFunc->type.addParam($1->type);
+					};
+
+EnumeratorList	:	Enumerator {
+					vector<string>& enum_values = newEnum.type.values; 
+                    if (variableSearch(&scopes, $1->name) || enumSearch(&scopes, "enum " + $1->name) || enumIdentifierSearch(&scopes, $1->name) || isInVector(enum_values, $1->name) || newEnum.name == "enum " + $1->name) {
+                        errorDef(yylineno, $1->name);
+                        exit(0);
+                     }
+						newEnum.type.values = vector<string>(1, $1->name);
+                    }
+				|	EnumeratorList COMMA Enumerator { 
+						vector<string>& enum_values = newEnum.type.values;
+						if (variableSearch(&scopes, $3->name) || enumSearch(&scopes, "enum " + $3->name) || enumIdentifierSearch(&scopes, $3->name) || isInVector(enum_values, $3->name) || newEnum.name == "enum " + $3->name) {
+							errorDef(yylineno, $3->name);
+							exit(0);
+						}
+						enum_values.push_back($3->name);
+					};		
+
+Enumerator		:	ID
+
+Statements		:	Statement
+				|	Statements Statement;
+
+Statement		:	LBRACE ADD_SCOPE
+						// addScope(scopes, offsets);
+					/*}*/ Statements REMOVE_SCOPE /*{*/
+						// removeScope(scopes, offsets);
+					/*}*/ RBRACE
+				|	Type ID SC {
+						if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name) || enumSearch(&scopes, "enum " + $2->name) || enumIdentifierSearch(&scopes, $2->name)) {
+							errorDef(yylineno, $2->name);
+							exit(0);
+						}
+                        newVariable = variableEntry($2->name, $1->type, offsets.top());
+						scopes.top()->insertVariable(newVariable);
+						offsets.top()++;
+					}
+				|	EnumType ID SC {
+						if (variableSearch(&scopes, $2->name) || enumIdentifierSearch(&scopes, $2->name)) {
+							errorDef(yylineno, $2->name);
+							exit(0);
+						} else if (!enumSearch(&scopes, $1->type)){
+							errorUndefEnum(yylineno, $1->type.substr(5));
+							exit(0);
+						}
+                        newVariable = variableEntry($2->name, $1->type, offsets.top());
+						scopes.top()->insertVariable(newVariable);
+						offsets.top()++;
+					}
+
+				|	EnumDecl
+				|	Type ID ASSIGN Exp SC { 
+						if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name)) {
+							errorDef(yylineno, $2->name);
+							exit(0);
+						}
+						else if ($1->type != $4 ->type && ($1->type != "INT" || $4->type != "BYTE")) {
+						    errorMismatch(yylineno); 
+							exit(0);
+						}
+                        newVariable = variableEntry($2->name, $1->type, offsets.top());
+						scopes.top()->insertVariable(newVariable);
+						offsets.top()++;
+					}
+				|	EnumType ID ASSIGN Exp SC {
+						enumEntry* enum_entry = enumSearch(&scopes, $1->type);
+						if (!enum_entry) {
+							errorUndefEnum(yylineno, $1->type.substr(5));
+							exit(0);
+						}
+						else if (variableSearch(&scopes, $2->name)) {
+							errorDef(yylineno, $2->name);
+							exit(0);
+						}
+						else if (!isInString($4->type, "enum")|| !isInVector(enum_entry->type.values, $4->name)) {
+							errorUndefEnumValue(yylineno, $2->name);
+							exit(0);
+						}
+                        newVariable = variableEntry($2->name, $1->type, offsets.top(), $3->value);
+						scopes.top()->insertVariable(newVariable);
+						offsets.top()++;
+					}
+				|	ID ASSIGN Exp SC {
+						variableEntry* var = variableSearch(&scopes, $1->name);
+						if (!var) {
+							errorUndef(yylineno, $1->name);
+							exit(0);
+						} 
+						else if (isInString(var->type, "enum") && $3->type != var->type) {
+							errorUndefEnumValue(yylineno, $1->name);
+							exit(0);
+						}
+						else if (var->type != $3->type && (var->type != "INT" || $3->type != "BYTE")) {
+							errorMismatch(yylineno);
+							exit(0);
+						}
+					}
+				|	Call SC
+				|	RETURN SC {
+						if (scopes.top()->currentFunc->type.returnType != "VOID"){
+							errorMismatch(yylineno);
+							exit(0);
+						}
+					}
+				|	RETURN Exp SC {
+						if (scopes.top()->currentFunc->type.returnType != $2->type && (scopes.top()->currentFunc->type.returnType != "INT" || $2->type != "BYTE")){
+						    errorMismatch(yylineno);
+							exit(0);
+						}
+						else if(scopes.top()->currentFunc->type.returnType == "VOID"){
+						    errorMismatch(yylineno);
+							exit(0);
+						}
+					}
+				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE Statement REMOVE_SCOPE ELSE ADD_SCOPE Statement REMOVE_SCOPE
+				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE Statement REMOVE_SCOPE
+				|	WHILE LPAREN Exp {
+						if ($3->type != "BOOL") {
+						    errorMismatch(yylineno);
+							exit(0);
+						}
+					} RPAREN ADD_SCOPE {
+						scopes.top()->insideLoop = true;
+					} Statement REMOVE_SCOPE 
+				|	BREAK SC {
+						if(!insideWhileLoop(&scopes)){
+							errorUnexpectedBreak(yylineno);
+							exit(0);
+						}
+					}
+					
+				|	CONTINUE SC {
+						if(!insideWhileLoop(&scopes)){
+							errorUnexpectedContinue(yylineno);
+							exit(0);
+						}
+					};
+
+Call 			:	ID LPAREN {funcParameterStack.push(vector<string>());} ExpList RPAREN {
+						functionEntry* f = functionSearch(&scopes, $1->name);
+						if(!f) {
+							errorUndefFunc(yylineno, $1->name);
+							exit(0);
+						} else if (!similarParameters(f->type.paramTypes, funcParameterStack.top())) {
+							errorPrototypeMismatch(yylineno, $1->name, f->type.paramTypes);
+							exit(0);
+						}
+						funcParameterStack.pop();
+						$$ = new variableEntry("", f->type.returnType);
+					}
+				|	ID LPAREN RPAREN {
+						functionEntry* f = functionSearch(&scopes, $1->name);
+						if(!f) {
+							errorUndefFunc(yylineno, $1->name);
+							exit(0);
+						} else if (f->type.paramTypes.size() != 0) {
+							errorPrototypeMismatch(yylineno, $1->name, f->type.paramTypes); 
+							exit(0);
+						}
+						$$ = new variableEntry("", f->type.returnType);
+					};
+
+ExpList 		:	Exp {
+						vector<string>& parameters = funcParameterStack.top();
+						parameters.insert(parameters.begin(), $1->type);
+					}
+				|	Exp COMMA ExpList {
+						vector<string>& parameters = funcParameterStack.top();
+						parameters.insert(parameters.begin(), $1->type);
+					};
+
+Type 			:	INT{$$ = new variableEntry("", "INT");}
+				|	BYTE{$$ = new variableEntry("", "BYTE");}
+				|	BOOL{$$ = new variableEntry("", "BOOL");};
+	
+EnumType 		:	ENUM ID {$$ = new variableEntry("", "enum " + $2->name);};
+	
+Exp 			:	LPAREN Exp RPAREN {$$= $2;}
+				|	Exp MUL Exp {$$ = dealWithBinop($1, $3);}
+				|	Exp DIV Exp {$$ = dealWithBinop($1, $3);}
+				|	Exp ADD Exp {
+						$$ = dealWithBinop($1, $3);
+					}
+				|	Exp SUB Exp {$$ = dealWithBinop($1, $3);}
+				|	ID {
+						enumEntry* enum_entry = enumIdentifierSearch(&scopes, $1->name);
+						variableEntry* var = variableSearch(&scopes, $1->name);
+						if (enum_entry) {
+							int enum_value = getEnumValue(enum_entry->type.values, $1->name);
+							$$ = new variableEntry($1->name, enum_entry->name, 0, enum_value);
+						}
+						else if (var) {
+							$$ = new variableEntry(var->name, var->type, var->offset, var->value);
+						}
+						else {
+							errorUndef(yylineno, $1->name);
+							exit(0);
+						}
+					}  
+				|	Call { 
+						$$ = $1; 
+					}
+				|	NUM {$$ = new variableEntry("", "INT");}
+				|	NUM B {
+					    if(!($1->value >= 0 && $1->value <= 255)){
+						    errorByteTooLarge(yylineno, std::to_string($1->value));
+						    exit(0);
+						}
+				        $$ = new variableEntry("", "BYTE");
+				    }
+				|	STRING {$$ = new variableEntry("", "STRING");}
+				|	TRUE {$$ = new variableEntry("", "BOOL");}
+				|	FALSE {$$ = new variableEntry("", "BOOL");}
+				|	NOT Exp {$$ = dealwithBoolOutput(vecstr{"BOOL"}, $2);}
+				|	Exp AND Exp {$$ = dealwithBoolOutput(vecstr{"BOOL"}, $1, $3);}
+				|	Exp OR Exp {$$ = dealwithBoolOutput(vecstr{"BOOL"}, $1, $3);}
+				|	Exp EQUALITY Exp {$$ = dealwithBoolOutput(vecstr{"BYTE", "INT"}, $1, $3);}
+				|	Exp RELATION Exp {$$ = dealwithBoolOutput(vecstr{"BYTE", "INT"}, $1, $3);}
+				|	LPAREN Type RPAREN Exp { 
+						if ($2->type != "INT") { // CONVERSION IS NOT TO INT
+						    errorMismatch(yylineno); 
+							exit(0);
+						} 
+						variableEntry* var = variableSearch(&scopes, $4->name);
+						enumEntry* enum_entry = enumIdentifierSearch(&scopes, $4->name);
+						if (var && isInString(var->type, "enum")) { // CONVERSION IS FROM VARIABLE
+							$$ = new variableEntry("", "INT", 0, var->value);
+						}
+						else if (enum_entry) { //CONVERSION IS FROM AN ENUMERATION STRING
+							int enum_value = getEnumValue(enum_entry->type.values, $4->name);
+							$$ = new variableEntry("", "INT", 0, enum_value);
+						}
+						else {
+							errorMismatch(yylineno); 
+							exit(0);
+						}						
+					};
+
+
+ADD_SCOPE 		:	{
+						functionEntry* tmp = scopes.top()->currentFunc;
+						addScope(scopes, offsets);
+						scopes.top()->currentFunc = tmp;
+				};
+
+REMOVE_SCOPE 	:	{
+						removeScope(scopes, offsets);
+				};
+
+CHECK_IF_BOOL 	:	Exp {
+					if ($1->type != "BOOL") {
+						    errorMismatch(yylineno);
+							exit(0);
+						}
+					};
+%%
+
+main(){
+    //~~~~~~~~~~~~ instancing Tables for handling scopes ~~~~~~~~~~~~//
+
+    // instance & initialize scope stack
+    Scope* s = new Scope();
+    scopes = stack<Scope*>();
+    scopes.push(s);
+
+    // instance & initialize scope stack
+    offsets= stack<int>();
+    offsets.push(0);
+	
+	// Add print and printi library functions
+	// print
+	functionType printType = functionType("VOID", std::vector<string>());
+	printType.addParam("STRING");
+	functionEntry  printEntry = functionEntry("print", printType);
+	scopes.top()->insertFunction(printEntry);
+
+	// printi
+	functionType printiType = functionType("VOID", std::vector<string>());
+	printiType.addParam("INT");
+	functionEntry  printiEntry = functionEntry("printi", printiType);
+	scopes.top()->insertFunction(printiEntry);
+
+	yyparse();
+
+	functionEntry* checkMain = scopes.top()->getFunction("main");
+	if (checkMain == NULL || checkMain->type.paramTypes.size()!=0 || checkMain->type.returnType != "VOID"){
+		errorMainMissing();
+		return 0;
+	}
+	removeScope(scopes, offsets);
+	return 0;
+}
+
+int yyerror(const char * message) {
+	errorSyn(yylineno);
+	exit(0);
+}
+
+variableEntry* variableSearch(stack<Scope*> *scopes, string name) {
+	if (scopes->empty()) {
+		return NULL;
+	}
+
+	variableEntry* entry = scopes->top()->getVariable(name);
+	if (entry) {
+		return entry;
+	}
+
+	Scope* s = scopes->top();
+	scopes->pop();
+	entry = variableSearch(scopes, name);
+	scopes->push(s);
+	return entry;
+}
+
+functionEntry* functionSearch(stack<Scope*> *scopes, string name) {
+	if (scopes->empty()) {
+		return NULL;
+	}
+
+	functionEntry* entry = scopes->top()->getFunction(name);
+	functionEntry* scopeCurrentFunc = scopes->top()->currentFunc;
+	if (entry) {
+		return entry;
+	} else if (scopeCurrentFunc->name == name) {
+		return scopeCurrentFunc;
+	}
+
+	Scope* s = scopes->top();
+	scopes->pop();
+	entry = functionSearch(scopes, name);
+	scopes->push(s);
+	return entry;
+}
+
+enumEntry* enumSearch(stack<Scope*> *scopes, string name) {
+	if (scopes->empty()) {
+		return NULL;
+	}
+
+	enumEntry* entry = scopes->top()->getEnum(name);
+	if (entry) {
+		return entry;
+	}
+
+	Scope* s = scopes->top();
+	scopes->pop();
+	entry = enumSearch(scopes, name);
+	scopes->push(s);
+	return entry;
+}
+
+enumEntry* enumIdentifierSearch(stack<Scope*> *scopes, string name) {
+	if (scopes->empty()) {
+		return NULL;
+	}
+	enumEntry* entry = scopes->top()->getEnumWithEnumeration(name); 
+	if (entry) {
+		return entry;
+	}
+
+	Scope* s = scopes->top();
+	scopes->pop();
+	entry = enumIdentifierSearch(scopes, name);
+	scopes->push(s);
+	return entry;
+}
+
+
+bool similarParameters(const vector<string>& expected, const vector<string>& actual) {
+	if (expected.size() != actual.size()) {
+		return false;
+	}
+	vector<string>::const_iterator expected_iter = expected.begin();
+	vector<string>::const_iterator actual_iter = actual.begin();
+	while (expected_iter != expected.end()) {
+		if (*expected_iter != *actual_iter && (*expected_iter != "INT" || *actual_iter != "BYTE")) 
+			return false;
+		expected_iter++;
+		actual_iter++;
+	}
+	return true;
+}
+
+int getEnumValue(const vector<string>& enumerations, const string& name) {
+	int val= 0;
+	vector<string>::const_iterator it;
+	for (it = enumerations.cbegin(); it != enumerations.cend(); ++it) {
+		if (!name.compare(*it)) {
+			return val;
+		}
+		++val;
+	}
+}
+
+YYSTYPE dealwithBoolOutput(vector<string> check_for, YYSTYPE left, YYSTYPE right) {
+	if (right && !isInVector(check_for, right->type)) {
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	else if (left && !isInVector(check_for, left->type)) {
+		errorMismatch(yylineno);
+		exit(0);
+	}
+
+	return new variableEntry("", "BOOL");
+}
+
+YYSTYPE dealWithBinop(YYSTYPE left, YYSTYPE right) {
+	if ((left->type != "INT" || right->type != "BYTE") && (left->type != "BYTE" || right->type != "INT") &&
+	 ((right->type != "BYTE" && left->type != "BYTE") && ( right->type != "INT" && left->type != "INT"))) {
+		errorMismatch(yylineno); 
+		exit(0);
+	}
+	string type = left->type == "BYTE" && right->type == "BYTE" ? "BYTE" : "INT";
+	return new variableEntry("", type);
+}
+
+bool isInVector(vector<string> vec, string str) {
+	return find(vec.begin(), vec.end(), str) != vec.end();
+}
+
+void addScope (stack<Scope*>& scopes, stack<int>& offsets){
+    scopes.push(new Scope());
+    offsets.push(offsets.top());
+}
+
+void removeScope (stack<Scope*>& scopes, stack<int>& offsets){
+    endScope();
+    scopes.top()->printVariables();
+    scopes.top()->printFunctions();
+    scopes.top()->printEnums();
+    scopes.pop();
+    offsets.pop();
+}
+
+void printScopesAux(stack<Scope*>* scopes) {
+	if(scopes->empty()) {
+		return;
+	}
+	cout << "SCOPE -------------" << endl;
+	Scope* top = scopes->top();
+	cout << "\tVars:" << endl;
+	top->printVariables();
+	cout << "\tFuncs:" << endl;
+	top->printFunctions();
+	cout << "\tEnums:" << endl;
+	top->printEnums();
+	cout << "SCOPE END ---------" << endl;
+	scopes->pop();
+	printScopesAux(scopes);
+	scopes->push(top);
+}
+
+bool insideWhileLoop(stack<Scope*>* scopes){
+	if (scopes->empty()) {
+		return false;
+	}
+    if(scopes->top()->insideLoop)
+        return true;
+
+	Scope* s = scopes->top();
+	scopes->pop();
+	bool res = insideWhileLoop(scopes);
+	scopes->push(s);
+	return res;
+}
+
+void printScopes(stack<Scope*>* scopes) {
+	cout << "------------------------------------------------------------" << endl;
+	printScopesAux(scopes);
+	cout << "------------------------------------------------------------" << endl << endl;
+}
+
+bool isInString(string target, string search) {
+	return (target.find(search) != string::npos);
+}
+
+void printVector(const vector<string>& vec) {
+	for (vector<string>::const_iterator i = vec.begin(); i != vec.end(); ++i) {
+    	cout << *i << ' ';
+	}
+    cout << endl;
+}
