@@ -24,6 +24,16 @@ string arithmeticOp(string op, bool is_signed){
     return "";
 }
 
+string getRelopOp(string op) {
+    if (op == ">")  return "icmp sgt ";
+    if (op == ">=") return "icmp sge ";
+    if (op == "<")  return "icmp slt ";
+    if (op == "<=") return "icmp sle ";
+    if (op == "==") return "icmp eq ";
+    if (op == "!=") return "icmp ne ";
+    return "";
+}
+
 void exitProgram(){
  emit("call void @exit(i32 1)")
 }
