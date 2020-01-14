@@ -18,6 +18,7 @@ using namespace output;
 #define YYSTYPE scopeTables::variableEntry*
 
 extern int yylineno;
+typedef pair<int,BranchLabelIndex> bp_pair;
 
 namespace scopeTables{
     template <typename t>
@@ -30,8 +31,8 @@ namespace scopeTables{
             string reg;
             string label;
             string op;
-            vector<pair<int,BranchLabelIndex> trueList;
-            vector<pair<int,BranchLabelIndex> falseList;
+            vector<bp_pair> trueList;
+            vector<bp_pair> falseList;
             entry(string name="", t type= t(), int offset=0, int value=0, string op= ""):name(name), type(type), offset(offset), value(value), op(op),
                         reg(""), label(""){
                 this->trueList = vector<int>();
