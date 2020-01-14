@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <stack>
 #include "hw3_output.hpp"
@@ -20,6 +21,7 @@ void emitGlobal(const std::string& s){
 
 void bpatch(const vector<bp_pair>& l, const string &label) {
     CodeBuffer::instance().bpatch(l, label);
+}
 
 
 string genLabel() {
@@ -68,7 +70,7 @@ string getRelopOp(string op) {
 }
 
 void exitProgram(){
- emit("call void @exit(i32 1)")
+ emit("call void @exit(i32 1)");
 }
 
 void addExitPrintFunctions(){
@@ -78,15 +80,14 @@ void addExitPrintFunctions(){
     emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
     emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
 
-    emit("define void @printi(i32) {")
-    emit("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4x i8]* @.int_specifier, i32 0, i32 0), i32 %0)")
-    emit("ret void")
-    emit("}")
-    emit("define void @print(i8*) {")
-    emit("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4x i8]* @.str_specifier, i32 0, i32 0), i8* %0)")
-    emit("ret void")
-    emit("}")
-
+    emit("define void @printi(i32) {");
+    emit("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4x i8]* @.int_specifier, i32 0, i32 0), i32 %0)");
+    emit("ret void");
+    emit("}");
+    emit("define void @print(i8*) {");
+    emit("call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4x i8]* @.str_specifier, i32 0, i32 0), i8* %0)");
+    emit("ret void");
+    emit("}");
 }
 
 int emitCondition(string r1, string op, string r2) {
@@ -99,10 +100,10 @@ int emitCondition(string r1, string op, string r2) {
 class GenerateLLVM{
 public:
     GenerateLLVM(){
-        emitData("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')") //todo: is this how the print function works?
+        emitGlobal("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
     }
 
-    int binop(string r1, string r2, string op, bool isSigned){
+    string binop(string r1, string r2, string op, bool isSigned){
         if(op == "/"){
             int errorLabel = emitCondition("0", "!=",  r2 );
             /* todo: work on this when you implement the stack and understand it
@@ -112,10 +113,10 @@ public:
             */
 
             exitProgram();
-            bpatch(makelist(errorLabel),genLabel());
+            bpatch(makelist(make_pair(errorLabel, FIRST)),genLabel());
         }
-        int resultReg= freshReg();
-        emit(resultReg + " = " getArithmeticOp(op, is_signed) + " " + r1 + ", " + r2);
+        string resultReg= freshReg();
+        emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
 
         if(!isSigned)
             emit("and i32 " + r1 + ", 255");

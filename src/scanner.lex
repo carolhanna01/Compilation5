@@ -3,6 +3,7 @@
 /* Declarations section */
 #include <stdio.h>
 #include "scopes.h"
+#include "bp.hpp"
 #include "hw3_output.hpp"
 #include "parser.tab.hpp"
 

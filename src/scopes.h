@@ -9,6 +9,7 @@
 #include <stack>
 #include <vector>
 #include "hw3_output.hpp"
+#include "bp.hpp"
 
 using namespace std;
 using namespace output;
@@ -35,8 +36,8 @@ namespace scopeTables{
             vector<bp_pair> falseList;
             entry(string name="", t type= t(), int offset=0, int value=0, string op= ""):name(name), type(type), offset(offset), value(value), op(op),
                         reg(""), label(""){
-                this->trueList = vector<int>();
-                this->falseList = vector<int>();
+                this->trueList = vector<bp_pair>();
+                this->falseList = vector<bp_pair>();
 
             };
         };

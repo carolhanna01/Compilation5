@@ -4,6 +4,7 @@
 	#include <stdlib.h>
 	#include <algorithm>
 	#include "scopes.h"
+	#include "GenerateLLVM.hpp"
 
 	using namespace output;
 	using namespace scopeTables;
