@@ -101,6 +101,8 @@ int emitUnconditional() {
 }
 
 class GenerateLLVM{
+private:
+    stack<string> stackBases;
 public:
     GenerateLLVM(){
         emitGlobal("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
@@ -118,7 +120,7 @@ public:
             exitProgram();
             bpatch(makeList(bp_pair(errorLabel, FIRST)),genLabel());
         }
-        string resultReg= freshReg();
+        string resultReg = freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
 
         if(!isSigned)
@@ -126,4 +128,43 @@ public:
 
         return r1;
     }
+
+
+    /*
+        @args   - int numOfElements - The number of i32 elements to allocate on the stack
+        @ret    - string
+    */
+    string prepStack() {
+        string base = freshReg();
+        emit(base + " = alloca [50 x i32]");
+        stackBases.push(base);
+        return base;
+    }
+
+    /*
+        Returns a register containing the address of an element with the requested offset in the stack.
+    */
+    string stackGet(int offset) {
+        string element = freshReg();
+        emit(element + " = getelementptr [50 x i32], [50 x i32]* " + stackBases.top() + ", i32 0, i32 " + toString(offset));
+        return element;
+    }
+
+    /*
+        Set a value in stack by a given register
+        Returns register with the address of the element
+    */
+    string stackSet(int offset, string reg) {
+        string element = stackGet(offset);
+        emit("store i32 " + reg + ", i32* " + element);
+        return element;
+    }
+
+    /*
+        Set a value in stack by a given value
+    */
+    string stackSetByVal(int offset, int value) {
+        return stackSet(offset, toString(value));     //TRICK TO SET AN ACTUAL VALUE, SENT AS A REG
+    }
+
 };
