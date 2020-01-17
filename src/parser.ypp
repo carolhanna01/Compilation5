@@ -16,6 +16,8 @@
 	stack<Scope*> scopes;
 	stack<int> offsets;
 	stack<vector<string>> funcParameterStack;
+	stack<vector<bp_pair>> loopBreaks;
+	stack<vector<bp_pair>> loopContinues;
 	variableEntry newVariable = variableEntry();
 	enumEntry newEnum = enumEntry();
 	int funcParamOffset = -1;
@@ -272,21 +274,50 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							exit(0);
 						}
 					}
-				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE Statement REMOVE_SCOPE ELSE ADD_SCOPE Statement REMOVE_SCOPE
-				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE Statement REMOVE_SCOPE
-				|	WHILE LPAREN Exp {
+				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE ELSE N ADD_SCOPE M Statement REMOVE_SCOPE{
+						bpatch($3->trueList, $6->label);
+						bpatch($3->falseList, $12->label);
+						string label = genLabel();
+						bpatch(makeList(bp_pair($10->value, FIRST)), label);
+
+					}
+				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE{
+						bpatch($3->trueList, $6->label);
+						string label = genLabel();
+						bpatch($3->falseList, label);
+					}
+				|	WHILE LPAREN M Exp M {
 						if ($3->type != "BOOL") {
 						    errorMismatch(yylineno);
 							exit(0);
 						}
+						bpatch($4->trueList, $5->label);
+						loopContinues.push(vector<bp_pair>());
+						loopBreaks.push(vector<bp_pair>());
+						
 					} RPAREN ADD_SCOPE {
 						scopes.top()->insideLoop = true;
-					} Statement REMOVE_SCOPE 
+						
+					} Statement REMOVE_SCOPE {
+						emit("br " + $3->label);
+						vector<bp_pair> updated = merge(loopBreaks.top(), $4->falseList);
+						string label = genLabel();
+						bpatch(updated, label);
+						updated = loopContinues.top();
+						bpatch(updated, $3->label);
+						loopContinues.pop();
+						loopBreaks.pop();
+						
+					}
 				|	BREAK SC {
 						if(!insideWhileLoop(&scopes)){
 							errorUnexpectedBreak(yylineno);
 							exit(0);
 						}
+						int jump = emit("br ");
+						vector<bp_pair> updatesBreaks = merge(makeList(bp_pair(jump, FIRST)), loopBreaks.top());
+						loopBreaks.pop();
+						loopBreaks.push(updatesBreaks);
 					}
 					
 				|	CONTINUE SC {
@@ -294,6 +325,10 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorUnexpectedContinue(yylineno);
 							exit(0);
 						}
+						int jump = emit("br ");
+						vector<bp_pair> updatedCont = merge(makeList(bp_pair(jump, FIRST)), loopContinues.top());
+						loopContinues.pop();
+						loopContinues.push(updatedCont);
 					};
 
 Call 			:	ID LPAREN {funcParameterStack.push(vector<string>());} ExpList RPAREN {
@@ -442,6 +477,11 @@ M 				:	{
 						$$ = new markerEntry();
 						$$->label = genLabel();
 				};	
+
+N				: 	{
+						$$ = new markerEntry();
+						$$->value = emit("br ");
+				};
 
 ADD_SCOPE 		:	{
 						functionEntry* tmp = scopes.top()->currentFunc;
