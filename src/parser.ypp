@@ -115,6 +115,7 @@ EnumDecl		:	ENUM ID {
 						newEnum.name = "enum " + $2->name;
 					} LBRACE EnumeratorList RBRACE SC {
 						scopes.top()->insertEnum(newEnum);
+						
 					};
 	
 RetType			:	Type {$$ = $1;}
@@ -199,6 +200,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
 						scopes.top()->insertVariable(newVariable);
 						offsets.top()++;
+						generator.newVariable(offsets.top());
 					}
 
 				|	EnumDecl
@@ -237,6 +239,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
                         newVariable = variableEntry($2->name, $1->type, offsets.top(), $3->value);
 						scopes.top()->insertVariable(newVariable);
 						offsets.top()++;
+						generator.newVariable(offsets.top(), $4->reg);
 					}
 				|	ID ASSIGN Exp SC {
 						variableEntry* var = variableSearch(&scopes, $1->name);
