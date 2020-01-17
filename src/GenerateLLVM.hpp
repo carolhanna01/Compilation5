@@ -169,26 +169,27 @@ public:
         return stackSet(offset, toString(value));     //TRICK TO SET AN ACTUAL VALUE, SENT AS A REG
     }
 
-
     void newVariable(int offset, string reg = "") {
-        int val = (reg == "") ? 0 : %reg;
-        stackSet(offset, val);
+        if(reg == "")
+            stackSetByVal(offset, 0);
+        else
+            stackSet(offset, reg);
     };
 
-    void setBool(vector<int> &truelist, vector<int> &falselist, int offset) { //todo: previously defined..?
+    void setBool(vector<bp_pair> &trueList, vector<bp_pair> &falseList, int offset) { //todo: previously defined..?
         string label = genLabel();
-        bpatch(truelist, label);
+        bpatch(trueList, label);
 
         stackSetByVal(offset, 1);
         int next_addr = emit("br ");
 
         label = genLabel();
-        bpatch(falselist, label);
+        bpatch(falseList, label);
 
         stackSetByVal(offset, 0);
 
         label = genLabel();
-        bpatch(makelist(next_addr), label);
+        bpatch(makeList(bp_pair(next_addr, FIRST)), label);
     };
     
 
