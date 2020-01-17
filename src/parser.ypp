@@ -175,11 +175,7 @@ Enumerator		:	ID
 Statements		:	Statement
 				|	Statements Statement;
 
-Statement		:	LBRACE ADD_SCOPE
-						// addScope(scopes, offsets);
-					/*}*/ Statements REMOVE_SCOPE /*{*/
-						// removeScope(scopes, offsets);
-					/*}*/ RBRACE
+Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 				|	Type ID SC {
 						if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name) || enumSearch(&scopes, "enum " + $2->name) || enumIdentifierSearch(&scopes, $2->name)) {
 							errorDef(yylineno, $2->name);
@@ -188,6 +184,7 @@ Statement		:	LBRACE ADD_SCOPE
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
 						scopes.top()->insertVariable(newVariable);
 						offsets.top()++;
+						generator.newVariable(offsets.top());
 					}
 				|	EnumType ID SC {
 						if (variableSearch(&scopes, $2->name) || enumIdentifierSearch(&scopes, $2->name)) {
@@ -215,6 +212,11 @@ Statement		:	LBRACE ADD_SCOPE
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
 						scopes.top()->insertVariable(newVariable);
 						offsets.top()++;
+						if ($4->type != "BOOL")
+							generator.newVariable(offsets.top(), $4->reg);
+										
+						else
+							generator.setBool($4->trueList, $4->falseList, offsets.top());
 					}
 				|	EnumType ID ASSIGN Exp SC {
 						enumEntry* enum_entry = enumSearch(&scopes, $1->type);
@@ -248,6 +250,10 @@ Statement		:	LBRACE ADD_SCOPE
 							errorMismatch(yylineno);
 							exit(0);
 						}
+						if(var->type == "BOOL")
+							generator.setBool($3->trueList, $3->falseList, var->offset);
+						else
+							generator.stackSet(var->offset, $3->reg);
 					}
 				|	Call SC
 				|	RETURN SC {

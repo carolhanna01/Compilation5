@@ -46,7 +46,7 @@ string toString(int num) {
 string freshReg(){
     static int regCount=-1;
     regCount++;
-    return "%r" + toString(regCount);
+    return "%r " + toString(regCount);
 }
 
 
@@ -103,14 +103,16 @@ int emitUnconditional() {
 class GenerateLLVM{
 private:
     stack<string> stackBases;
+
 public:
-    GenerateLLVM(){
-        emitGlobal("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
+    GenerateLLVM() {
+        emitGlobal(
+                "division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
     }
 
-    string binop(string r1, string r2, string op, bool isSigned){
-        if(op == "/"){
-            int errorLabel = emitCondition("0", "!=",  r2 );
+    string binop(string r1, string r2, string op, bool isSigned) {
+        if (op == "/") {
+            int errorLabel = emitCondition("0", "!=", r2);
             /* todo: work on this when you implement the stack and understand it
             emit("la " + r1 + ", division_by_zero");
             push(r1);
@@ -118,12 +120,12 @@ public:
             */
 
             exitProgram();
-            bpatch(makeList(bp_pair(errorLabel, FIRST)),genLabel());
+            bpatch(makeList(bp_pair(errorLabel, FIRST)), genLabel());
         }
         string resultReg = freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
 
-        if(!isSigned)
+        if (!isSigned)
             emit("and i32 " + r1 + ", 255");
 
         return r1;
@@ -166,5 +168,28 @@ public:
     string stackSetByVal(int offset, int value) {
         return stackSet(offset, toString(value));     //TRICK TO SET AN ACTUAL VALUE, SENT AS A REG
     }
+
+
+    void newVariable(int offset, string reg = "") {
+        int val = (reg == "") ? 0 : %reg;
+        stackSet(offset, val);
+    };
+
+    void setBool(vector<int> &truelist, vector<int> &falselist, int offset) { //todo: previously defined..?
+        string label = genLabel();
+        bpatch(truelist, label);
+
+        stackSetByVal(offset, 1);
+        int next_addr = emit("br ");
+
+        label = genLabel();
+        bpatch(falselist, label);
+
+        stackSetByVal(offset, 0);
+
+        label = genLabel();
+        bpatch(makelist(next_addr), label);
+    };
+    
 
 };
