@@ -184,17 +184,17 @@ public:
         Set a value in stack by a given register
         Returns register with the address of the element
     */
-    string stackSet(int offset, string reg) {
-        string element = stackGet(offset);
-        emit("store i32 " + reg + ", i32* " + element);
-        return element;
+    void stackSet(int offset, string reg) {
+        string ptr = freshReg();
+        emit(ptr + " = getelementptr [50 x i32], [50 x i32]* " + stackBases.top() + ", i32 0, i32 " + toString(offset));
+        emit("store i32 " + reg + ", i32* " + ptr);    
     }
 
     /*
         Set a value in stack by a given value
     */
-    string stackSetByVal(int offset, int value) {
-        return stackSet(offset, toString(value));     //TRICK TO SET AN ACTUAL VALUE, SENT AS A REG
+    void stackSetByVal(int offset, int value) {
+        stackSet(offset, toString(value));     //TRICK TO SET AN ACTUAL VALUE, SENT AS A REG
     }
 
     void newVariable(int offset, string reg = "") {
@@ -204,9 +204,24 @@ public:
             stackSet(offset, reg);
     };
 
+    /*
+        Helpful guide for how backpatching for booleans should look like:
+
+            {boolean assesment code BRANCHED to missing labels}
+            trueLabel:
+                {true code} // Assign true to register/memory
+                br after
+            falseLabel:
+                {false code} // Assign false to register/memory
+                // 'br after' is not needed because it will actually go to after... 
+            after:
+                {continuation...}
+
+        We must makes sure the trueLabel and falseLabel are backpached for the boolean assesment code.
+    */
     string setBool(vector<bp_pair> &trueList, vector<bp_pair> &falseList, bool intoStack = false, int offset = 0) { //todo: previously defined..?
-        string label = genLabel();
-        bpatch(trueList, label);
+        string trueLabel = genLabel();
+        bpatch(trueList, trueLabel);
 
         string reg = freshReg();
         if (intoStack) {
@@ -215,9 +230,9 @@ public:
             assignToReg(reg, 1);
         }
 
-        int next_addr = emit("br ");
-        label = genLabel();
-        bpatch(falseList, label);
+        int after_address = emitUnconditional();
+        string falseLabel = genLabel();
+        bpatch(falseList, falseLabel);
 
         if (intoStack) {
             stackSetByVal(offset, 0);
@@ -225,8 +240,8 @@ public:
         else {
             assignToReg(reg, 1);
         }
-        label = genLabel();
-        bpatch(makeList(bp_pair(next_addr, FIRST)), label);
+        string afterLabel = genLabel();
+        bpatch(makeList(bp_pair(after_address, FIRST)),afterLabel);
 
     };
     
