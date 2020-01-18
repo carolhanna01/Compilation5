@@ -569,13 +569,13 @@ main(){
 	// print
 	functionType printType = functionType("VOID", std::vector<string>());
 	printType.addParam("STRING");
-	functionEntry  printEntry = functionEntry("print", printType);
+	functionEntry printEntry = functionEntry("print", printType);
 	scopes.top()->insertFunction(printEntry);
 
 	// printi
 	functionType printiType = functionType("VOID", std::vector<string>());
 	printiType.addParam("INT");
-	functionEntry  printiEntry = functionEntry("printi", printiType);
+	functionEntry printiEntry = functionEntry("printi", printiType);
 	scopes.top()->insertFunction(printiEntry);
 
 	yyparse();
@@ -733,9 +733,12 @@ void addScope (stack<Scope*>& scopes, stack<int>& offsets){
 
 void removeScope (stack<Scope*>& scopes, stack<int>& offsets){
     endScope();
-    scopes.top()->printVariables();
-    scopes.top()->printFunctions();
-    scopes.top()->printEnums();
+    /*
+    LEGACY PRINT FUNCTIONS FROM PART 3 OF HW
+    */
+    // scopes.top()->printVariables();
+    // scopes.top()->printFunctions();
+    // scopes.top()->printEnums();
     scopes.pop();
     offsets.pop();
 }
