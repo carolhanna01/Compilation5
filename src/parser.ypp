@@ -297,10 +297,12 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						}
 					}
 				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE ELSE N ADD_SCOPE M Statement REMOVE_SCOPE{
+						int addr = emitUnconditional();
 						bpatch($3->trueList, $6->label);
 						bpatch($3->falseList, $12->label);
 						string label = genLabel();
 						bpatch(makeList(bp_pair($10->value, FIRST)), label);
+						bpatch(makeList(bp_pair(addr, FIRST)), label);
 
 					}
 				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE{
@@ -309,7 +311,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						bpatch($3->falseList, label);
 					}
 				|	WHILE LPAREN M Exp M {
-						if ($3->type != "BOOL") {
+						if ($4->type != "BOOL") {
 						    errorMismatch(yylineno);
 							exit(0);
 						}
@@ -321,7 +323,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						scopes.top()->insideLoop = true;
 						
 					} Statement REMOVE_SCOPE {
-						emit("br label @" + $3->label);
+						emit("br label %" + $3->label);
 						vector<bp_pair> updated = merge(loopBreaks.top(), $4->falseList);
 						string label = genLabel();
 						bpatch(updated, label);
@@ -336,10 +338,10 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorUnexpectedBreak(yylineno);
 							exit(0);
 						}
-						int jump = emit("br label @");
-						vector<bp_pair> updatesBreaks = merge(makeList(bp_pair(jump, FIRST)), loopBreaks.top());
+						int jump = emitUnconditional();
+						vector<bp_pair> updatedBreaks = merge(makeList(bp_pair(jump, FIRST)), loopBreaks.top());
 						loopBreaks.pop();
-						loopBreaks.push(updatesBreaks);
+						loopBreaks.push(updatedBreaks);
 					}
 					
 				|	CONTINUE SC {
@@ -347,7 +349,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorUnexpectedContinue(yylineno);
 							exit(0);
 						}
-						int jump = emit("br label @");
+						int jump = emitUnconditional();
 						vector<bp_pair> updatedCont = merge(makeList(bp_pair(jump, FIRST)), loopContinues.top());
 						loopContinues.pop();
 						loopContinues.push(updatedCont);
@@ -508,6 +510,7 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						int loc = emitCondition($1->reg, $2->name, $3->reg);
 						$$->trueList = makeList(bp_pair(loc, FIRST));
 						$$->falseList = makeList(bp_pair(loc, SECOND));
+						
 					}
 					// END OF NO REG ASSUMPTION
 				|	LPAREN Type RPAREN Exp { 
@@ -533,15 +536,18 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 
 
 // MISC 
-M 				:	{
+M 				:	{	
+						int addr = emitUnconditional();
 						$$ = new markerEntry();
 						$$->label = genLabel();
+						bpatch(makeList(bp_pair(addr, FIRST)), $$->label);
+						
 
 				};	
 
 N				: 	{
 						$$ = new markerEntry();
-						$$->value = emit("br label @");
+						$$->value = emitUnconditional();
 						//cout << "DEBUG from N" << endl;
 				};
 

@@ -65,10 +65,10 @@ string freshString(){
 
 string getArithmeticOp(string op, bool is_signed){
 
-    if (op == "+") return "add ";
-    if (op == "-") return "sub ";
-    if (op == "*") return "mul ";
-    if (op == "/") return is_signed ? "sdiv " : "udiv ";
+    if (op == "+") return "add i32";
+    if (op == "-") return "sub i32";
+    if (op == "*") return "mul i32";
+    if (op == "/") return is_signed ? "sdiv i32" : "udiv i32";
     return "";
 }
 
@@ -161,9 +161,16 @@ public:
 
     string binop(string r1, string r2, string op, bool isSigned) {
         if (op == "/") {
-            int errorLabel = emitCondition("0", "!=", r2);
+            int addr = emitCondition("0", "!=", r2);
+            string error_label= genLabel();
+            string errorMsg = addGlobalString("Error division by zero");
+            emit("call void @print(i8* %errorMsg)");
             exitProgram();
-            bpatch(makeList(bp_pair(errorLabel, FIRST)), genLabel());
+            int endError= emitUnconditional();
+            string legalDivision= genLabel();
+            bpatch(makeList(bp_pair(addr, FIRST)), legalDivision);
+            bpatch(makeList(bp_pair(endError, FIRST)),legalDivision);
+            bpatch(makeList(bp_pair(addr, SECOND)), error_label);
         }
         string resultReg = freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
