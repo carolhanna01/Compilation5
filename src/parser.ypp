@@ -370,6 +370,7 @@ Call 			:	ID LPAREN {
 						funcParamTypes.pop();
 						$$ = new variableEntry("", f->type.returnType);
 						$$->reg = generator.callFunc(f->name, f->type.returnType, funcParamRegs);
+						funcParamRegs = vector<string>();
 					}
 				|	ID LPAREN RPAREN {
 						functionEntry* f = functionSearch(&scopes, $1->name);
