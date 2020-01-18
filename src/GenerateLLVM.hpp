@@ -65,9 +65,9 @@ string freshString(){
 
 string getArithmeticOp(string op, bool is_signed){
 
-    if (op == "+") return "add i32";
-    if (op == "-") return "sub i32";
-    if (op == "*") return "mul i32";
+    if (op == "+") return "add i32 ";
+    if (op == "-") return "sub i32 ";
+    if (op == "*") return "mul i32 ";
     if (op == "/") return is_signed ? "sdiv i32" : "udiv i32";
     return "";
 }
@@ -209,7 +209,7 @@ public:
     string loadPtr(int offset) {
         // CHECK IF OFFSET IS FROM FUNCTION
         if (offset < 0) {
-            offset = 50 - offset;
+            offset = 49 - offset ;
         }
         int numVars = 50 + stackBases.top().second;
         string base = stackBases.top().first;
@@ -296,8 +296,8 @@ public:
 
     string addGlobalString(string s){
         string newS= freshString();
-        string stringSize= toString(s.length()+2);
-        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\\0A\\00\"");
+        string stringSize= toString(s.length());
+        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\"");
         string reg = freshReg();
         emit(reg + " = getelementptr [" + stringSize + "x i8] , ["+ stringSize + "x i8] * " + newS + ", i32 0, i32 0");
         return reg;
