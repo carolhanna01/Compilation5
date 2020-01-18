@@ -125,7 +125,7 @@ public:
         string resultReg = freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
 
-        if (!isSigned)
+        if (!isSigned) //todo - zext
             emit("and i32 " + r1 + ", 255");
 
         return r1;
@@ -147,8 +147,10 @@ public:
         Returns a register containing the address of an element with the requested offset in the stack.
     */
     string stackGet(int offset) {
+        string ptr = freshReg();
         string element = freshReg();
-        emit(element + " = getelementptr [50 x i32], [50 x i32]* " + stackBases.top() + ", i32 0, i32 " + toString(offset));
+        emit(ptr + " = getelementptr [50 x i32], [50 x i32]* " + stackBases.top() + ", i32 0, i32 " + toString(offset));
+        emit(element + " = load i32, i32* " + ptr);
         return element;
     }
 
@@ -176,21 +178,97 @@ public:
             stackSet(offset, reg);
     };
 
-    void setBool(vector<bp_pair> &trueList, vector<bp_pair> &falseList, int offset) { //todo: previously defined..?
+    string setBool(vector<bp_pair> &trueList, vector<bp_pair> &falseList, bool intoStack = false, int offset = 0) { //todo: previously defined..?
         string label = genLabel();
         bpatch(trueList, label);
 
-        stackSetByVal(offset, 1);
-        int next_addr = emit("br ");
+        string reg = freshReg();
+        if (intoStack) {
+            stackSetByVal(offset, 1);
+        } else {
+            assignToReg(reg, 1);
+        }
 
+        int next_addr = emit("br ");
         label = genLabel();
         bpatch(falseList, label);
 
-        stackSetByVal(offset, 0);
-
+        if (intoStack) {
+            stackSetByVal(offset, 0);
+        }
+        else {
+            assignToReg(reg, 1);
+        }
         label = genLabel();
         bpatch(makeList(bp_pair(next_addr, FIRST)), label);
+
     };
     
+    string number(int value) {
+        string reg = freshReg();
+        assignToReg(reg, value);
+        return reg;
+    }
+
+    void assignToReg(string reg, int value) {
+        emit(reg + " = add i32 0, " + toString(value));
+    }
+
+    void startFuncDef(string name, int numArgs) {
+        string args = prepareArgsForDec(numArgs);
+        emit("define i32 @" + name + "(" + args + ") {" );
+    }
+
+    void endFuncDef(string returnReg = "") {
+        if (returnReg == "") {
+            emit("ret void");
+        }
+        else {
+            emit("ret i32 " + returnReg);
+        }
+        emit("}");
+    }
+
+    string callFunc(string name, string returnType, vector<string> paramRegs = vector<string>()) {
+        string args = prepareArgsForCall(paramRegs);
+        string output = string("");
+        if (returnType == "VOID") {
+            emit("call " + returnType + " @" + name + "(" + args + ")");
+        }
+        else {
+            output = freshReg();
+            emit(output + " = call " + returnType + " @" + name + "(" + args + ")");
+        }
+        return output;
+    }
+
+
+    static string prepareArgsForCall(vector<string> paramRegs) {
+        if (paramRegs.size() == 0) {
+            return string("");
+        }
+
+        string orderedRegs = "";
+        for (auto reg : paramRegs) {
+            orderedRegs += "i32 " + reg + ", ";
+        }
+        orderedRegs.pop_back();
+        orderedRegs.pop_back();
+        return orderedRegs;
+    }
+
+    static string prepareArgsForDec(int numArgs) {
+        if (numArgs == 0) {
+            return string("");
+        }
+
+        string args = "";
+        for (int i = 0; i < numArgs; i++) {
+            args += "i32, ";
+        }
+        args.pop_back();
+        args.pop_back();
+        return args;
+    }
 
 };
