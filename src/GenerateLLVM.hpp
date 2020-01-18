@@ -187,7 +187,7 @@ public:
         if (!isSigned) //todo - zext
             emit("and i32 " + r1 + ", 255");
 
-        return r1;
+        return resultReg;
     }
 
     /*
