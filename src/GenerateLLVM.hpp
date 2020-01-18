@@ -46,10 +46,17 @@ string toString(int num) {
 }
 
 string freshReg(){
-    static int regCount=-1;
+    static int regCount = -1;
     regCount++;
     return "%r" + toString(regCount);
 }
+
+string freshString(){
+    static int strCount = -1;
+    strCount++;
+    return "@.Str" + strCount;
+}
+
 
 
 string getArithmeticOp(string op, bool is_signed){
@@ -90,14 +97,20 @@ class GenerateLLVM{
 private:
     stack<string> stackBases;
 
-    string prepareArgsForCall(vector<string> paramRegs) {
+    string prepareArgsForCall(vector<string> paramRegs, string name) {
         if (paramRegs.size() == 0) {
             return string("");
         }
 
         string orderedRegs = "";
-        for (auto reg : paramRegs) {
-            orderedRegs += "i32 " + reg + ", ";
+        if (name == "print"){
+            for (auto reg : paramRegs) {
+                orderedRegs += "i8* " + reg + ", ";
+            }
+        }else {
+            for (auto reg : paramRegs) {
+                orderedRegs += "i32 " + reg + ", ";
+            }
         }
         orderedRegs.pop_back();
         orderedRegs.pop_back();
@@ -251,6 +264,15 @@ public:
         return reg;
     }
 
+    string addGlobalString(string s){
+        string newS= freshString();
+        string stringSize= toString(s.size());
+        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\\0A\\00\"");
+        string reg = freshReg();
+        emit("%reg = getelementptr [" + stringSize + "x i8] , ["+ stringSize + "x i8] * " + newS + ", i64 0, i64 0");
+        return reg;
+    }
+
     void assignToReg(string reg, int value) {
         emit(reg + " = add i32 0, " + toString(value));
     }
@@ -272,18 +294,17 @@ public:
     }
 
     string callFunc(string name, string returnType, vector<string> paramRegs = vector<string>()) {
-        string args = prepareArgsForCall(paramRegs);
+        string args = prepareArgsForCall(paramRegs, name);
         string output = string("");
+
         if (returnType == "VOID") {
-            emit("call " + returnType + " @" + name + "(" + args + ")");
-        }
-        else {
+            emit("call void @" + name + "(" + args + ")");
+        }else {
             output = freshReg();
-            emit(output + " = call " + returnType + " @" + name + "(" + args + ")");
+            emit(output + " = call i32"  + " @" + name + "(" + args + ")");
         }
         return output;
     }
-
 
 
 

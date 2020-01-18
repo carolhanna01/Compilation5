@@ -390,6 +390,7 @@ ExpList 		:	Exp {
 							funcParamRegs.insert(funcParamRegs.begin(), boolRes);
 						}
 						else {
+							//cout<< "DEBUG REG FROM PARSER " << $1->reg <<endl;
 							funcParamRegs.insert(funcParamRegs.begin(), $1->reg);
 						}
 					}
@@ -460,8 +461,11 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						$$->reg = generator.number($1->value);
 				    }
 				|	STRING {
-						//todo - this
 						$$ = new variableEntry("", "STRING");
+
+						$$->reg = generator.addGlobalString($1->name);
+						//cout << "DEBUG STRING VAL: " << $$->reg <<endl;
+
 					}
 				/*
 					From here onwards "register is ready" assumption is not true, 
