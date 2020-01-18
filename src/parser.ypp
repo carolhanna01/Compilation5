@@ -586,6 +586,7 @@ main(){
 		return 0;
 	}
 	removeScope(scopes, offsets);
+	printCodeBuffer();
 	return 0;
 }
 

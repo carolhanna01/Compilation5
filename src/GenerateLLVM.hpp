@@ -35,6 +35,10 @@ vector<bp_pair> makeList(bp_pair item) {
 vector<bp_pair> merge(const vector<bp_pair> &l1,const vector<bp_pair> &l2) {
     return CodeBuffer::instance().merge(l1, l2);
 }
+
+void printCodeBuffer() {
+    return CodeBuffer::instance().printCodeBuffer();
+};
 /*                                         ~~~~~~~~~                                        */
 
 string toString(int num) {
