@@ -193,8 +193,8 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						}
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
 						scopes.top()->insertVariable(newVariable);
-						offsets.top()++;
 						generator.newVariable(offsets.top());
+						offsets.top()++;
 					}
 				|	EnumType ID SC {
 						if (variableSearch(&scopes, $2->name) || enumIdentifierSearch(&scopes, $2->name)) {
@@ -203,13 +203,12 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						} else if (!enumSearch(&scopes, $1->type)){
 							errorUndefEnum(yylineno, $1->type.substr(5));
 							exit(0);
-						}
+						} 
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
 						scopes.top()->insertVariable(newVariable);
-						offsets.top()++;
 						generator.newVariable(offsets.top());
+						offsets.top()++;
 					}
-
 				|	EnumDecl
 				|	Type ID ASSIGN Exp SC { 
 						if (variableSearch(&scopes, $2->name) || functionSearch(&scopes, $2->name)) {
@@ -222,12 +221,13 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						}
                         newVariable = variableEntry($2->name, $1->type, offsets.top());
 						scopes.top()->insertVariable(newVariable);
-						offsets.top()++;
-						if ($4->type != "BOOL")
-							generator.newVariable(offsets.top(), $4->reg);
-										
-						else
+						if ($4->type != "BOOL") {
+							generator.newVariable(offsets.top(), $4->reg);			
+						}
+						else {
 							generator.setBool($4->trueList, $4->falseList, true, offsets.top());
+						}
+						offsets.top()++;
 					}
 				|	EnumType ID ASSIGN Exp SC {
 						enumEntry* enum_entry = enumSearch(&scopes, $1->type);
@@ -245,8 +245,8 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						}
                         newVariable = variableEntry($2->name, $1->type, offsets.top(), $3->value);
 						scopes.top()->insertVariable(newVariable);
-						offsets.top()++;
 						generator.newVariable(offsets.top(), $4->reg);
+						offsets.top()++;
 					}
 				|	ID ASSIGN Exp SC {
 						variableEntry* var = variableSearch(&scopes, $1->name);
@@ -262,10 +262,13 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorMismatch(yylineno);
 							exit(0);
 						}
-						if(var->type == "BOOL")
+						if(var->type == "BOOL") {
+							cout << "OFFSET IS " << var->offset << endl;
 							generator.setBool($3->trueList, $3->falseList, true, var->offset);
-						else
+						}
+						else {
 							generator.stackSet(var->offset, $3->reg);
+						}
 					}
 				|	Call SC
 				|	RETURN SC {

@@ -242,7 +242,7 @@ public:
         }
         string afterLabel = genLabel();
         bpatch(makeList(bp_pair(after_address, FIRST)),afterLabel);
-
+        return reg;
     };
     
     string number(int value) {
