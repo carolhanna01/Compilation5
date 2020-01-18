@@ -42,9 +42,7 @@ void printCodeBuffer() {
 /*                                         ~~~~~~~~~                                        */
 
 string toString(int num) {
-        stringstream ss;
-        ss << num;
-        return ss.str();
+    return to_string(num);
 }
 
 string freshReg(){
@@ -147,12 +145,6 @@ public:
     string binop(string r1, string r2, string op, bool isSigned) {
         if (op == "/") {
             int errorLabel = emitCondition("0", "!=", r2);
-            /* todo: work on this when you implement the stack and understand it
-            emit("la " + r1 + ", division_by_zero");
-            push(r1);
-            emit("jal print");
-            */
-
             exitProgram();
             bpatch(makeList(bp_pair(errorLabel, FIRST)), genLabel());
         }
@@ -251,6 +243,7 @@ public:
     void startFuncDef(string name, int numArgs) {
         string args = prepareArgsForDec(numArgs);
         emit("define i32 @" + name + "(" + args + ") {" );
+        prepStack();
     }
 
     void endFuncDef(string returnReg = "") {
