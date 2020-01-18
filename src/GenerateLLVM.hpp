@@ -276,8 +276,9 @@ public:
         return reg;
     }
 
-    void assignToReg(string reg, int value) {
+    string assignToReg(string reg, int value) {
         emit(reg + " = add i32 0, " + toString(value));
+        return reg;
     }
 
     void startFuncDef(string name, int numArgs, string type= "") {

@@ -164,11 +164,11 @@ FormalDecl 		:	Type ID {
 					};
 
 EnumeratorList	:	Enumerator {
-					vector<string>& enum_values = newEnum.type.values; 
-                    if (variableSearch(&scopes, $1->name) || enumSearch(&scopes, "enum " + $1->name) || enumIdentifierSearch(&scopes, $1->name) || isInVector(enum_values, $1->name) || newEnum.name == "enum " + $1->name) {
-                        errorDef(yylineno, $1->name);
-                        exit(0);
-                     }
+						vector<string>& enum_values = newEnum.type.values; 
+                 	    if (variableSearch(&scopes, $1->name) || enumSearch(&scopes, "enum " + $1->name) || enumIdentifierSearch(&scopes, $1->name) || isInVector(enum_values, $1->name) || newEnum.name == "enum " + $1->name) {
+                       		errorDef(yylineno, $1->name);
+                     	    exit(0);
+                     	}
 						newEnum.type.values = vector<string>(1, $1->name);
                     }
 				|	EnumeratorList COMMA Enumerator { 
@@ -435,15 +435,16 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						if (enum_entry) {
 							int enum_value = getEnumValue(enum_entry->type.values, $1->name);
 							$$ = new variableEntry($1->name, enum_entry->name, 0, enum_value);
+							$$->reg = generator.assignToReg(freshReg(), enum_value);
 						}
 						else if (var) {
 							$$ = new variableEntry(var->name, var->type, var->offset, var->value);
+							$$->reg = generator.stackGet(var->offset);
 						}
 						else {
 							errorUndef(yylineno, $1->name);
 							exit(0);
 						}
-						$$->reg = generator.stackGet(var->offset);
 					}  
 				|	Call { 
 						$$ = $1; 
