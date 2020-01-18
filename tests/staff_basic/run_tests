@@ -1,0 +1,13 @@
+for file in `ls ./../tests/staff_basic | grep in | cut -d"." -f1`; do
+	./hw5 < ../tests/staff_basic/${file}.in > ../tests/staff_basic/${file}
+	DIFF=$(diff ../tests/staff_basic/$file ../tests/staff_basic/${file}.out)
+    if [ "$DIFF" != "" ]
+    then
+        echo ${file} "FAILED"
+    fi
+	if [ "$DIFF" == "" ]
+    then
+        echo ${file} "SUCCEEDED"
+    fi
+	
+done
