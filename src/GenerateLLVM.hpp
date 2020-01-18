@@ -278,7 +278,7 @@ public:
         } else {
             emit("store i32 1, i32* " + newReg);
         }
-        int after_address = emitUnconditional();
+        int finishTrue = emitUnconditional();
 
         string falseLabel = genLabel();
         bpatch(falseList, falseLabel);
@@ -289,11 +289,16 @@ public:
         else {
             emit("store i32 0, i32* " + newReg);
         }
+        int finishFalse = emitUnconditional();
+
         string afterLabel = genLabel();
-        bpatch(makeList(bp_pair(after_address, FIRST)),afterLabel);
+        bpatch(makeList(bp_pair(finishTrue, FIRST)),afterLabel);
+        bpatch(makeList(bp_pair(finishFalse, FIRST)),afterLabel);
 
+        string res = freshReg();
+        emit(res + " = load i32, i32* " + newReg);
 
-        return newReg;
+        return res;
     };
     
 
