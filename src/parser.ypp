@@ -15,7 +15,8 @@
 
 	stack<Scope*> scopes;
 	stack<int> offsets;
-	stack<vector<string>> funcParameterStack;
+	stack<vector<string>> funcParamTypes;
+	vector<string> funcParamRegs;
 	stack<vector<bp_pair>> loopBreaks;
 	stack<vector<bp_pair>> loopContinues;
 	variableEntry newVariable = variableEntry();
@@ -77,6 +78,7 @@
 %nonassoc ELSE
 %left TRUE FALSE
 
+
 /*
 	Doneth list - 1, 2, 3, 4, 11, 12, 13
 */ 
@@ -98,10 +100,14 @@ FuncDecl		:	RetType ID {
 						scopes.top()->currentFunc->type.returnType = $1->type;
 						scopes.top()->currentFunc->type.paramTypes = vector<string>();
 						funcParamOffset = -1;
-					} LPAREN Formals RPAREN LBRACE Statements RBRACE {
+					} LPAREN Formals RPAREN {
+						int numArgs = scopes.top()->currentFunc->type.paramTypes.size();
+						generator.startFuncDef($2->name, numArgs);
+					} LBRACE Statements RBRACE {
 						functionEntry new_function(*(scopes.top()->currentFunc));
 						removeScope(scopes, offsets);
 						scopes.top()->insertFunction(new_function);
+
 					};
 
 Enums			:	/*epsilon*/{};
@@ -220,7 +226,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							generator.newVariable(offsets.top(), $4->reg);
 										
 						else
-							generator.setBool($4->trueList, $4->falseList, offsets.top());
+							generator.setBool($4->trueList, $4->falseList, true, offsets.top());
 					}
 				|	EnumType ID ASSIGN Exp SC {
 						enumEntry* enum_entry = enumSearch(&scopes, $1->type);
@@ -256,7 +262,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							exit(0);
 						}
 						if(var->type == "BOOL")
-							generator.setBool($3->trueList, $3->falseList, var->offset);
+							generator.setBool($3->trueList, $3->falseList, true, var->offset);
 						else
 							generator.stackSet(var->offset, $3->reg);
 					}
@@ -266,15 +272,25 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorMismatch(yylineno);
 							exit(0);
 						}
+						generator.endFuncDef();
 					}
 				|	RETURN Exp SC {
+						// SEMANTIC
 						if (scopes.top()->currentFunc->type.returnType != $2->type && (scopes.top()->currentFunc->type.returnType != "INT" || $2->type != "BYTE")){
 						    errorMismatch(yylineno);
 							exit(0);
 						}
-						else if(scopes.top()->currentFunc->type.returnType == "VOID"){
+						else if (scopes.top()->currentFunc->type.returnType == "VOID"){
 						    errorMismatch(yylineno);
 							exit(0);
+						}
+						// GENERATION
+						if ($2->type == "BOOL") {
+							string reg = generator.setBool($2->trueList, $2->falseList);
+							generator.endFuncDef(reg);
+						}
+						else {
+							generator.endFuncDef($2->reg);
 						}
 					}
 				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE ELSE N ADD_SCOPE M Statement REMOVE_SCOPE{
@@ -334,17 +350,21 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						loopContinues.push(updatedCont);
 					};
 
-Call 			:	ID LPAREN {funcParameterStack.push(vector<string>());} ExpList RPAREN {
+Call 			:	ID LPAREN { 
+						funcParamTypes.push(vector<string>());
+						funcParamRegs = vector<string>();
+					} ExpList RPAREN {
 						functionEntry* f = functionSearch(&scopes, $1->name);
 						if(!f) {
 							errorUndefFunc(yylineno, $1->name);
 							exit(0);
-						} else if (!similarParameters(f->type.paramTypes, funcParameterStack.top())) {
+						} else if (!similarParameters(f->type.paramTypes, funcParamTypes.top())) {
 							errorPrototypeMismatch(yylineno, $1->name, f->type.paramTypes);
 							exit(0);
 						}
-						funcParameterStack.pop();
+						funcParamTypes.pop();
 						$$ = new variableEntry("", f->type.returnType);
+						$$->reg = generator.callFunc(f->name, f->type.returnType, funcParamRegs);
 					}
 				|	ID LPAREN RPAREN {
 						functionEntry* f = functionSearch(&scopes, $1->name);
@@ -356,15 +376,30 @@ Call 			:	ID LPAREN {funcParameterStack.push(vector<string>());} ExpList RPAREN 
 							exit(0);
 						}
 						$$ = new variableEntry("", f->type.returnType);
+						$$->reg = generator.callFunc(f->name, f->type.returnType);
 					};
 
 ExpList 		:	Exp {
-						vector<string>& parameters = funcParameterStack.top();
+						vector<string>& parameters = funcParamTypes.top();
 						parameters.insert(parameters.begin(), $1->type);
+						if ($1->type == "BOOL") {
+							string boolRes = generator.setBool($1->trueList, $1->falseList);
+							funcParamRegs.insert(funcParamRegs.begin(), boolRes);
+						}
+						else {
+							funcParamRegs.insert(funcParamRegs.begin(), $1->reg);
+						}
 					}
 				|	Exp COMMA ExpList {
-						vector<string>& parameters = funcParameterStack.top();
+						vector<string>& parameters = funcParamTypes.top();
 						parameters.insert(parameters.begin(), $1->type);
+						if ($1->type == "BOOL") {
+							string boolRes = generator.setBool($1->trueList, $1->falseList);
+							funcParamRegs.insert(funcParamRegs.begin(), boolRes);
+						}
+						else {
+							funcParamRegs.insert(funcParamRegs.begin(), $1->reg);
+						}
 					};
 
 Type 			:	INT{$$ = new variableEntry("", "INT");}
@@ -404,19 +439,31 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 							errorUndef(yylineno, $1->name);
 							exit(0);
 						}
+						$$->reg = generator.stackGet(var->offset);
 					}  
 				|	Call { 
 						$$ = $1; 
 					}
-				|	NUM {$$ = new variableEntry("", "INT");}
+				|	NUM {
+						$$ = new variableEntry("", "INT");
+						$$->reg = generator.number($1->value);
+					}
 				|	NUM B {
 					    if(!($1->value >= 0 && $1->value <= 255)){
 						    errorByteTooLarge(yylineno, std::to_string($1->value));
 						    exit(0);
 						}
 				        $$ = new variableEntry("", "BYTE");
+						$$->reg = generator.number($1->value);
 				    }
-				|	STRING {$$ = new variableEntry("", "STRING");}
+				|	STRING {
+						//todo - this
+						$$ = new variableEntry("", "STRING");
+					}
+				/*
+					From here onwards "register is ready" assumption is not true, 
+					because EXP type is boolean, and it is set with setBool, called in statement.
+				*/
 				|	TRUE {
 						$$ = new variableEntry("", "BOOL");
 						$$->trueList = makeList(bp_pair(emitUnconditional(), FIRST));
@@ -454,6 +501,7 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						$$->trueList = makeList(bp_pair(loc, FIRST));
 						$$->falseList = makeList(bp_pair(loc, SECOND));
 					}
+					// END OF NO REG ASSUMPTION
 				|	LPAREN Type RPAREN Exp { 
 						if ($2->type != "INT") { // CONVERSION IS NOT TO INT
 						    errorMismatch(yylineno); 
@@ -471,7 +519,8 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						else {
 							errorMismatch(yylineno); 
 							exit(0);
-						}						
+						}
+						$$->reg = $4->reg;						
 					};
 
 
@@ -520,13 +569,13 @@ main(){
 	// print
 	functionType printType = functionType("VOID", std::vector<string>());
 	printType.addParam("STRING");
-	functionEntry  printEntry = functionEntry("print", printType);
+	functionEntry printEntry = functionEntry("print", printType);
 	scopes.top()->insertFunction(printEntry);
 
 	// printi
 	functionType printiType = functionType("VOID", std::vector<string>());
 	printiType.addParam("INT");
-	functionEntry  printiEntry = functionEntry("printi", printiType);
+	functionEntry printiEntry = functionEntry("printi", printiType);
 	scopes.top()->insertFunction(printiEntry);
 
 	yyparse();
@@ -684,9 +733,12 @@ void addScope (stack<Scope*>& scopes, stack<int>& offsets){
 
 void removeScope (stack<Scope*>& scopes, stack<int>& offsets){
     endScope();
-    scopes.top()->printVariables();
-    scopes.top()->printFunctions();
-    scopes.top()->printEnums();
+    /*
+    LEGACY PRINT FUNCTIONS FROM PART 3 OF HW
+    */
+    // scopes.top()->printVariables();
+    // scopes.top()->printFunctions();
+    // scopes.top()->printEnums();
     scopes.pop();
     offsets.pop();
 }
