@@ -89,7 +89,13 @@ continue 							return CONTINUE;
 										yylval = new variableEntry("", "", 0, atoi(yytext));
 										return NUM;
 									};
-\"([^\n\r\"\\]|\\[rnt"\\])+\"		return STRING;
+\"([^\n\r\"\\]|\\[rnt"\\])+\"		{
+                                        string val = yytext;
+                                        val.erase(0, 1);
+                                        val.pop_back();
+                                        yylval = new variableEntry(val, "STRING");
+                                         return STRING;
+                                     };
 {comment}							;
 {whitespace}						;
 .									{ 	

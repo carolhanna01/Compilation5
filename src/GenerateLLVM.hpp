@@ -39,6 +39,10 @@ vector<bp_pair> merge(const vector<bp_pair> &l1,const vector<bp_pair> &l2) {
 void printCodeBuffer() {
     return CodeBuffer::instance().printCodeBuffer();
 };
+
+void printGlobalBuffer(){
+    return CodeBuffer::instance().printGlobalBuffer();
+}
 /*                                         ~~~~~~~~~                                        */
 
 string toString(int num) {
@@ -54,7 +58,7 @@ string freshReg(){
 string freshString(){
     static int strCount = -1;
     strCount++;
-    return "@.Str" + strCount;
+    return "@.Str" + toString(strCount);
 }
 
 
@@ -150,8 +154,7 @@ private:
 
 public:
     GenerateLLVM() {
-        emitGlobal(
-                "division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
+      //  emitGlobal("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
         addExitPrintFunctions();
     }
 
@@ -266,10 +269,10 @@ public:
 
     string addGlobalString(string s){
         string newS= freshString();
-        string stringSize= toString(s.size());
+        string stringSize= toString(s.length()+2);
         emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\\0A\\00\"");
         string reg = freshReg();
-        emit("%reg = getelementptr [" + stringSize + "x i8] , ["+ stringSize + "x i8] * " + newS + ", i64 0, i64 0");
+        emit(reg + " = getelementptr [" + stringSize + "x i8] , ["+ stringSize + "x i8] * " + newS + ", i32 0, i32 0");
         return reg;
     }
 
@@ -277,9 +280,14 @@ public:
         emit(reg + " = add i32 0, " + toString(value));
     }
 
-    void startFuncDef(string name, int numArgs) {
+    void startFuncDef(string name, int numArgs, string type= "") {
         string args = prepareArgsForDec(numArgs);
-        emit("define i32 @" + name + "(" + args + ") {" );
+        if(type == "VOID"){
+            emit("define void @" + name + "(" + args + ") {" );
+        }
+        else {
+            emit("define i32 @" + name + "(" + args + ") {" );
+        }
         prepStack();
     }
 

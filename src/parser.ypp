@@ -102,7 +102,7 @@ FuncDecl		:	RetType ID {
 						funcParamOffset = -1;
 					} LPAREN Formals RPAREN {
 						int numArgs = scopes.top()->currentFunc->type.paramTypes.size();
-						generator.startFuncDef($2->name, numArgs);
+						generator.startFuncDef($2->name, numArgs, $1->type);
 					} LBRACE Statements RBRACE {
 						functionEntry new_function(*(scopes.top()->currentFunc));
 						removeScope(scopes, offsets);
@@ -593,6 +593,7 @@ main(){
 		return 0;
 	}
 	removeScope(scopes, offsets);
+	printGlobalBuffer();
 	printCodeBuffer();
 	return 0;
 }
