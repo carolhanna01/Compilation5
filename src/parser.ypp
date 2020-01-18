@@ -732,7 +732,7 @@ void addScope (stack<Scope*>& scopes, stack<int>& offsets){
 }
 
 void removeScope (stack<Scope*>& scopes, stack<int>& offsets){
-    endScope();
+    //endScope();
     /*
     LEGACY PRINT FUNCTIONS FROM PART 3 OF HW
     */

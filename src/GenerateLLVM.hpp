@@ -46,7 +46,7 @@ string toString(int num) {
 string freshReg(){
     static int regCount=-1;
     regCount++;
-    return "%r " + toString(regCount);
+    return "%r" + toString(regCount);
 }
 
 
