@@ -100,7 +100,12 @@ int emitUnconditional() {
 
 class GenerateLLVM{
 private:
-    stack<string> stackBases;
+    /*
+        This structure contains a pair for each function.
+        Each pair contains a register and a number.
+        The register contains the base of the stack, and the number contains the number of arguments in that function.
+    */
+    stack<pair<string, int>> stackBases;
 
     string prepareArgsForCall(vector<string> paramRegs, string name) {
         if (paramRegs.size() == 0) {
@@ -177,7 +182,7 @@ public:
             treatDivByZero(r2);
         }
         string resultReg = freshReg();
-        emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
+        emit(resultReg + " = " + getArithmeticOp(op, isSigned) + r1 + ", " + r2);
 
         if (!isSigned) //todo - zext
             emit("and i32 " + r1 + ", 255");
@@ -185,25 +190,40 @@ public:
         return r1;
     }
 
-
     /*
         @args   - int numOfElements - The number of i32 elements to allocate on the stack
         @ret    - string
     */
-    string prepStack() {
+    string prepStack(int numArgs = 0) {
         string base = freshReg();
-        emit(base + " = alloca [50 x i32]");
-        stackBases.push(base);
+        emit(base + " = alloca [" + toString(50 + numArgs) + " x i32]");
+        stackBases.push(pair<string, int>(base, numArgs));
+        for (int i = 0; i < numArgs; i++) {
+            string arg = "%" + toString(i);
+            stackSet(-(i+1), arg);
+        }
         return base;
+    }
+
+
+    string loadPtr(int offset) {
+        // CHECK IF OFFSET IS FROM FUNCTION
+        if (offset < 0) {
+            offset = 50 - offset;
+        }
+        int numVars = 50 + stackBases.top().second;
+        string base = stackBases.top().first;
+        string ptr = freshReg();
+        emit(ptr + " = getelementptr [" + toString(numVars) + " x i32], [" + toString(numVars) + " x i32]* " + base + ", i32 0, i32 " + toString(offset));
+        return ptr;
     }
 
     /*
         Returns a register containing the address of an element with the requested offset in the stack.
     */
     string stackGet(int offset) {
-        string ptr = freshReg();
         string element = freshReg();
-        emit(ptr + " = getelementptr [50 x i32], [50 x i32]* " + stackBases.top() + ", i32 0, i32 " + toString(offset));
+        string ptr = loadPtr(offset);
         emit(element + " = load i32, i32* " + ptr);
         return element;
     }
@@ -213,9 +233,9 @@ public:
         Returns register with the address of the element
     */
     void stackSet(int offset, string reg) {
-        string ptr = freshReg();
-        emit(ptr + " = getelementptr [50 x i32], [50 x i32]* " + stackBases.top() + ", i32 0, i32 " + toString(offset));
-        emit("store i32 " + reg + ", i32* " + ptr);    
+        string ptr = loadPtr(offset);
+        emit("store i32 " + reg + ", i32* " + ptr);
+        return;
     }
 
     /*
@@ -241,7 +261,6 @@ public:
                 br after
             falseLabel:
                 {false code} // Assign false to register/memory
-                // 'br after' is not needed because it will actually go to after... 
             after:
                 {continuation...}
 
@@ -255,7 +274,7 @@ public:
         if (intoStack) {
             stackSetByVal(offset, 1);
         } else {
-            assignToReg(reg, 1);
+            assignToReg(1, reg);
         }
         //cout << "DEBUG : before" << endl;
         int after_address = emitUnconditional();
@@ -267,18 +286,13 @@ public:
             stackSetByVal(offset, 0);
         }
         else {
-            assignToReg(reg, 1);
+            assignToReg(1, reg);
         }
         string afterLabel = genLabel();
         bpatch(makeList(bp_pair(after_address, FIRST)),afterLabel);
         return reg;
     };
     
-    string number(int value) {
-        string reg = freshReg();
-        assignToReg(reg, value);
-        return reg;
-    }
 
     string addGlobalString(string s){
         string newS= freshString();
@@ -289,20 +303,23 @@ public:
         return reg;
     }
 
-    string assignToReg(string reg, int value) {
+    string assignToReg(int value, string reg = "") {
+        if (reg == "") {
+            reg = freshReg();
+        }
         emit(reg + " = add i32 0, " + toString(value));
         return reg;
     }
 
-    void startFuncDef(string name, int numArgs, string type= "") {
+    void startFuncDef(string name, int numArgs, string type = "") {
         string args = prepareArgsForDec(numArgs);
-        if(type == "VOID"){
+        if (type == "VOID") {
             emit("define void @" + name + "(" + args + ") {" );
         }
         else {
             emit("define i32 @" + name + "(" + args + ") {" );
         }
-        prepStack();
+        prepStack(numArgs);
     }
 
     void endFuncDef(string returnReg = "") {

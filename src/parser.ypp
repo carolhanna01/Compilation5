@@ -107,8 +107,9 @@ FuncDecl		:	RetType ID {
 						functionEntry new_function(*(scopes.top()->currentFunc));
 						removeScope(scopes, offsets);
 						scopes.top()->insertFunction(new_function);
-						if($1->type == "VOID")
+						if($1->type == "VOID") {
 							generator.endFuncDef();
+						}
 					};
 
 Enums			:	/*epsilon*/{};
@@ -262,8 +263,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorMismatch(yylineno);
 							exit(0);
 						}
-						if(var->type == "BOOL") {
-							cout << "OFFSET IS " << var->offset << endl;
+						if (var->type == "BOOL") {
 							generator.setBool($3->trueList, $3->falseList, true, var->offset);
 						}
 						else {
@@ -437,7 +437,7 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						if (enum_entry) {
 							int enum_value = getEnumValue(enum_entry->type.values, $1->name);
 							$$ = new variableEntry($1->name, enum_entry->name, 0, enum_value);
-							$$->reg = generator.assignToReg(freshReg(), enum_value);
+							$$->reg = generator.assignToReg(enum_value);
 						}
 						else if (var) {
 							$$ = new variableEntry(var->name, var->type, var->offset, var->value);
@@ -453,7 +453,7 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 					}
 				|	NUM {
 						$$ = new variableEntry("", "INT");
-						$$->reg = generator.number($1->value);
+						$$->reg = generator.assignToReg($1->value);
 					}
 				|	NUM B {
 					    if(!($1->value >= 0 && $1->value <= 255)){
@@ -461,7 +461,7 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						    exit(0);
 						}
 				        $$ = new variableEntry("", "BYTE");
-						$$->reg = generator.number($1->value);
+						$$->reg = generator.assignToReg($1->value);
 				    }
 				|	STRING {
 						$$ = new variableEntry("", "STRING");
