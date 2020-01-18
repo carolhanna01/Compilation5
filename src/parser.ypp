@@ -350,7 +350,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						loopContinues.push(updatedCont);
 					};
 
-Call 			:	ID LPAREN { //TODO - STOPPED HERE, SEE WHAT HAPPENS WHEN ret IS CALLED AND HOW i SHOULD RETRIEVE VALUE INTO REG.
+Call 			:	ID LPAREN { 
 						funcParamTypes.push(vector<string>());
 						funcParamRegs = vector<string>();
 					} ExpList RPAREN {
@@ -442,7 +442,6 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						$$->reg = generator.stackGet(var->offset);
 					}  
 				|	Call { 
-					//todo - after
 						$$ = $1; 
 					}
 				|	NUM {
@@ -521,7 +520,6 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 							errorMismatch(yylineno); 
 							exit(0);
 						}
-						//todo - assuming all is int and int is all, this is ok right?
 						$$->reg = $4->reg;						
 					};
 
