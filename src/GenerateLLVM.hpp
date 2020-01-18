@@ -153,6 +153,19 @@ private:
         emit("}");
     }
 
+    void treatDivByZero(string r){
+        int addr = emitCondition("0", "!=", r);
+        string error_label= genLabel();
+        string errorMsg = addGlobalString("Error division by zero");
+        emit("call void @print(i8* " + errorMsg +")");
+        exitProgram();
+        int endError= emitUnconditional();
+        string legalDivision= genLabel();
+        bpatch(makeList(bp_pair(addr, FIRST)), legalDivision);
+        bpatch(makeList(bp_pair(endError, FIRST)),legalDivision);
+        bpatch(makeList(bp_pair(addr, SECOND)), error_label);
+    }
+
 public:
     GenerateLLVM() {
       //  emitGlobal("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
@@ -161,16 +174,7 @@ public:
 
     string binop(string r1, string r2, string op, bool isSigned) {
         if (op == "/") {
-            int addr = emitCondition("0", "!=", r2);
-            string error_label= genLabel();
-            string errorMsg = addGlobalString("Error division by zero");
-            emit("call void @print(i8* %errorMsg)");
-            exitProgram();
-            int endError= emitUnconditional();
-            string legalDivision= genLabel();
-            bpatch(makeList(bp_pair(addr, FIRST)), legalDivision);
-            bpatch(makeList(bp_pair(endError, FIRST)),legalDivision);
-            bpatch(makeList(bp_pair(addr, SECOND)), error_label);
+            treatDivByZero(r2);
         }
         string resultReg = freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + " " + r1 + ", " + r2);
@@ -253,9 +257,9 @@ public:
         } else {
             assignToReg(reg, 1);
         }
-        cout << "DEBUG : before" << endl;
+        //cout << "DEBUG : before" << endl;
         int after_address = emitUnconditional();
-        cout << "DEBUG : after" << endl;
+        //cout << "DEBUG : after" << endl;
         string falseLabel = genLabel();
         bpatch(falseList, falseLabel);
 
