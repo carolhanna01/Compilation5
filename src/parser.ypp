@@ -107,7 +107,8 @@ FuncDecl		:	RetType ID {
 						functionEntry new_function(*(scopes.top()->currentFunc));
 						removeScope(scopes, offsets);
 						scopes.top()->insertFunction(new_function);
-
+						if($1->type == "VOID")
+							generator.endFuncDef();
 					};
 
 Enums			:	/*epsilon*/{};
@@ -272,7 +273,6 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorMismatch(yylineno);
 							exit(0);
 						}
-						generator.endFuncDef();
 					}
 				|	RETURN Exp SC {
 						// SEMANTIC
