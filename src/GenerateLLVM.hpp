@@ -65,9 +65,9 @@ string freshString(){
 
 string getArithmeticOp(string op, bool is_signed){
 
-    if (op == "+") return "add i32 ";
-    if (op == "-") return "sub i32 ";
-    if (op == "*") return "mul i32 ";
+    if (op == "+") return "add i32";
+    if (op == "-") return "sub i32";
+    if (op == "*") return "mul i32";
     if (op == "/") return is_signed ? "sdiv i32" : "udiv i32";
     return "";
 }
@@ -187,7 +187,7 @@ public:
         if (!isSigned) //todo - zext
             emit("and i32 " + r1 + ", 255");
 
-        return resultReg;
+        return r1;
     }
 
     /*
@@ -209,7 +209,7 @@ public:
     string loadPtr(int offset) {
         // CHECK IF OFFSET IS FROM FUNCTION
         if (offset < 0) {
-            offset = 49 - offset ;
+            offset = 50 - offset;
         }
         int numVars = 50 + stackBases.top().second;
         string base = stackBases.top().first;
@@ -267,18 +267,19 @@ public:
         We must makes sure the trueLabel and falseLabel are backpached for the boolean assesment code.
     */
     string setBool(vector<bp_pair> &trueList, vector<bp_pair> &falseList, bool intoStack = false, int offset = 0) { //todo: previously defined..?
-        string trueLabel = genLabel();
-        bpatch(trueList, trueLabel);
 
-        string reg = freshReg();
+        string trueLabel = genLabel();
+
+        bpatch(trueList, trueLabel);
+        string newReg = freshReg();
+        emit(newReg + " = alloca i32");
         if (intoStack) {
             stackSetByVal(offset, 1);
         } else {
-            assignToReg(1, reg);
+            emit("store i32 1, i32* " + newReg);
         }
-        //cout << "DEBUG : before" << endl;
         int after_address = emitUnconditional();
-        //cout << "DEBUG : after" << endl;
+
         string falseLabel = genLabel();
         bpatch(falseList, falseLabel);
 
@@ -286,18 +287,20 @@ public:
             stackSetByVal(offset, 0);
         }
         else {
-            assignToReg(1, reg);
+            emit("store i32 0, i32* " + newReg);
         }
         string afterLabel = genLabel();
         bpatch(makeList(bp_pair(after_address, FIRST)),afterLabel);
-        return reg;
+
+
+        return newReg;
     };
     
 
     string addGlobalString(string s){
         string newS= freshString();
-        string stringSize= toString(s.length());
-        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\"");
+        string stringSize= toString(s.length()+2);
+        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\\0A\\00\"");
         string reg = freshReg();
         emit(reg + " = getelementptr [" + stringSize + "x i8] , ["+ stringSize + "x i8] * " + newS + ", i32 0, i32 0");
         return reg;
