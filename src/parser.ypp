@@ -321,7 +321,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						scopes.top()->insideLoop = true;
 						
 					} Statement REMOVE_SCOPE {
-						emit("br " + $3->label);
+						emit("br label @" + $3->label);
 						vector<bp_pair> updated = merge(loopBreaks.top(), $4->falseList);
 						string label = genLabel();
 						bpatch(updated, label);
@@ -336,7 +336,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorUnexpectedBreak(yylineno);
 							exit(0);
 						}
-						int jump = emit("br ");
+						int jump = emit("br label @");
 						vector<bp_pair> updatesBreaks = merge(makeList(bp_pair(jump, FIRST)), loopBreaks.top());
 						loopBreaks.pop();
 						loopBreaks.push(updatesBreaks);
@@ -347,7 +347,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorUnexpectedContinue(yylineno);
 							exit(0);
 						}
-						int jump = emit("br ");
+						int jump = emit("br label @");
 						vector<bp_pair> updatedCont = merge(makeList(bp_pair(jump, FIRST)), loopContinues.top());
 						loopContinues.pop();
 						loopContinues.push(updatedCont);
@@ -499,13 +499,13 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 					}
 				|	Exp EQUALITY Exp {
 						$$ = dealwithBoolOutput(vecstr{"BYTE", "INT"}, $1, $3);
-						int loc = emitCondition($1->reg, $2->op, $3->reg);
+						int loc = emitCondition($1->reg, $2->name, $3->reg);
 						$$->trueList = makeList(bp_pair(loc, FIRST));
 						$$->falseList = makeList(bp_pair(loc, SECOND));
 					};
 				|	Exp RELATION Exp {
 						$$ = dealwithBoolOutput(vecstr{"BYTE", "INT"}, $1, $3);
-						int loc = emitCondition($1->reg, $2->op, $3->reg);
+						int loc = emitCondition($1->reg, $2->name, $3->reg);
 						$$->trueList = makeList(bp_pair(loc, FIRST));
 						$$->falseList = makeList(bp_pair(loc, SECOND));
 					}
@@ -536,11 +536,13 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 M 				:	{
 						$$ = new markerEntry();
 						$$->label = genLabel();
+
 				};	
 
 N				: 	{
 						$$ = new markerEntry();
-						$$->value = emit("br ");
+						$$->value = emit("br label @");
+						//cout << "DEBUG from N" << endl;
 				};
 
 ADD_SCOPE 		:	{
@@ -558,6 +560,7 @@ CHECK_IF_BOOL 	:	Exp {
 						    errorMismatch(yylineno);
 							exit(0);
 						}
+					
 					};
 %%
 
@@ -726,9 +729,9 @@ YYSTYPE dealWithBinop(YYSTYPE left, YYSTYPE right) {
 
 void generateBinopOp(YYSTYPE left, YYSTYPE right, YYSTYPE res, YYSTYPE operation){
 	if (left->type == "BYTE" && right->type == "BYTE") {
-		res->reg = generator.binop(left->reg, right->reg, operation->op, false);
+		res->reg = generator.binop(left->reg, right->reg, operation->name, false);
 	} else {
-		res->reg = generator.binop(left->reg, right->reg, operation->op, true);
+		res->reg = generator.binop(left->reg, right->reg, operation->name, true);
 	}
 }
 

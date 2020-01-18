@@ -31,10 +31,9 @@ namespace scopeTables{
             int value;
             string reg;
             string label;
-            string op;
             vector<bp_pair> trueList;
             vector<bp_pair> falseList;
-            entry(string name="", t type= t(), int offset=0, int value=0, string op= ""):name(name), type(type), offset(offset), value(value), op(op),
+            entry(string name="", t type= t(), int offset=0, int value=0, string op= ""):name(name), type(type), offset(offset), value(value),
                         reg(""), label(""){
                 this->trueList = vector<bp_pair>();
                 this->falseList = vector<bp_pair>();

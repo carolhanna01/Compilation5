@@ -88,8 +88,9 @@ void exitProgram(){
 
 
 int emitCondition(string r1, string op, string r2) {
+    //cout << "DEBUG OP : " + op << endl;
     string resReg = freshReg();
-    emit(resReg + " = " + getRelopOp(r1) + r1 + ", " + r2);
+    emit(resReg + " = " + getRelopOp(op) + r1 + ", " + r2);
     return emit("br i1 " +  resReg + ", label @, label @");
 }
 
@@ -245,8 +246,9 @@ public:
         } else {
             assignToReg(reg, 1);
         }
-
+        cout << "DEBUG : before" << endl;
         int after_address = emitUnconditional();
+        cout << "DEBUG : after" << endl;
         string falseLabel = genLabel();
         bpatch(falseList, falseLabel);
 
