@@ -330,15 +330,19 @@ public:
         prepStack(numArgs);
     }
 
-    void endFuncDef(string returnReg = "") {
+    void returnFunc(string returnReg = "") {
         if (returnReg == "") {
             emit("ret void");
         }
         else {
             emit("ret i32 " + returnReg);
         }
+    }
+
+    void finishFunc() {
         emit("}");
     }
+
 
     string callFunc(string name, string returnType, vector<string> paramRegs = vector<string>()) {
         string args = prepareArgsForCall(paramRegs, name);
