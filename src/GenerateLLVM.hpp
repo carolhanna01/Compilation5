@@ -173,7 +173,6 @@ private:
 
 public:
     GenerateLLVM() {
-      //  emitGlobal("division_by_zero_error: call void (i32) @print(i32 'Error division by zero')"); //todo: is this how the print function works?
         addExitPrintFunctions();
     }
 
@@ -269,34 +268,38 @@ public:
     string setBool(vector<bp_pair> &trueList, vector<bp_pair> &falseList, bool intoStack = false, int offset = 0) { //todo: previously defined..?
 
         string trueLabel = genLabel();
-
         bpatch(trueList, trueLabel);
-        string newReg = freshReg();
-        emit(newReg + " = alloca i32");
+
+        string trueReg = freshReg();
+        emit(trueReg + " = alloca i32");
         if (intoStack) {
             stackSetByVal(offset, 1);
         } else {
-            emit("store i32 1, i32* " + newReg);
+            emit("store i32 1, i32* " + trueReg);
         }
         int finishTrue = emitUnconditional();
 
         string falseLabel = genLabel();
         bpatch(falseList, falseLabel);
 
+        string falseReg = freshReg();
+        emit(falseReg + " = alloca i32");
         if (intoStack) {
             stackSetByVal(offset, 0);
         }
         else {
-            emit("store i32 0, i32* " + newReg);
+            emit("store i32 0, i32* " + falseReg);
         }
         int finishFalse = emitUnconditional();
 
         string afterLabel = genLabel();
+        string wantedReg= freshReg();
+        emit(wantedReg + "= phi i32* [" + trueReg + ", %" + trueLabel + "], [" + falseReg + ", %" + falseLabel + "]");
         bpatch(makeList(bp_pair(finishTrue, FIRST)),afterLabel);
         bpatch(makeList(bp_pair(finishFalse, FIRST)),afterLabel);
 
         string res = freshReg();
-        emit(res + " = load i32, i32* " + newReg);
+        emit(res + " = load i32, i32* " + wantedReg);
 
         return res;
     };
@@ -304,8 +307,8 @@ public:
 
     string addGlobalString(string s){
         string newS= freshString();
-        string stringSize= toString(s.length());
-        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\"");   
+        string stringSize= toString(s.length()+1);
+        emitGlobal(newS + " = constant [" + stringSize + "x i8] c\"" + s + "\\00\"");   
         string reg = freshReg();
         emit(reg + " = getelementptr [" + stringSize + "x i8] , ["+ stringSize + "x i8] * " + newS + ", i32 0, i32 0");
         return reg;

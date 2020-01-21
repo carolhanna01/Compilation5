@@ -22,6 +22,8 @@
 	variableEntry newVariable = variableEntry();
 	enumEntry newEnum = enumEntry();
 	int funcParamOffset = -1;
+	bool returnStatement = false;
+	string lastReturn = "";
 	GenerateLLVM generator;
 
     bool insideWhileLoop(stack<Scope*>* scopes);
@@ -277,6 +279,7 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 							errorMismatch(yylineno);
 							exit(0);
 						}
+						returnStatement=true;
 					}
 				|	RETURN Exp SC {
 						// SEMANTIC
@@ -296,20 +299,34 @@ Statement		:	LBRACE ADD_SCOPE Statements REMOVE_SCOPE RBRACE
 						else {
 							generator.returnFunc($2->reg);
 						}
+						returnStatement=true;
+						lastReturn= "ret i32 " + $2->reg;
+
 					}
 				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE ELSE N ADD_SCOPE M Statement REMOVE_SCOPE{
+						string reg = freshReg();		
+						
+						//bpatch(makeList(bp_pair($6->value, FIRST)), reg);
+						
 						int addr = emitUnconditional();
 						bpatch($3->trueList, $6->label);
 						bpatch($3->falseList, $12->label);
 						string label = genLabel();
+						
+
+						//bpatch(makeList(bp_pair($12->value, FIRST)), reg);
+						
 						bpatch(makeList(bp_pair($10->value, FIRST)), label);
 						bpatch(makeList(bp_pair(addr, FIRST)), label);
-
+						if(returnStatement)
+							emit(lastReturn);
 					}
 				|	IF LPAREN CHECK_IF_BOOL RPAREN ADD_SCOPE M Statement REMOVE_SCOPE{
+						int addr= emitUnconditional();
 						bpatch($3->trueList, $6->label);
 						string label = genLabel();
 						bpatch($3->falseList, label);
+						bpatch(makeList(bp_pair(addr, FIRST)), label);
 					}
 				|	WHILE LPAREN M Exp M {
 						if ($4->type != "BOOL") {
@@ -443,7 +460,14 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 						}
 						else if (var) {
 							$$ = new variableEntry(var->name, var->type, var->offset, var->value);
-							$$->reg = generator.stackGet(var->offset);
+							string reg = generator.stackGet(var->offset);
+							if (var->type == "BOOL") {
+								int addr = emitCondition(reg, "==", "0");
+								$$->trueList = makeList(bp_pair(addr, SECOND));
+								$$->falseList = makeList(bp_pair(addr, FIRST));
+							}
+							else
+								$$->reg = reg;
 						}
 						else {
 							errorUndef(yylineno, $1->name);
@@ -538,19 +562,18 @@ Exp 			:	LPAREN Exp RPAREN {$$= $2;}
 
 
 // MISC 
-M 				:	{	
-						int addr = emitUnconditional();
+M 				:	{	returnStatement = false;
+;
+
 						$$ = new markerEntry();
 						$$->label = genLabel();
-						bpatch(makeList(bp_pair(addr, FIRST)), $$->label);
-						
+
 
 				};	
 
 N				: 	{
 						$$ = new markerEntry();
 						$$->value = emitUnconditional();
-						//cout << "DEBUG from N" << endl;
 				};
 
 ADD_SCOPE 		:	{
