@@ -86,12 +86,14 @@ void exitProgram(){
  emit("call void @exit(i32 1)");
 }
 
+int emitConditionFromResult(string result) {
+    return emit("br i1 " +  result + ", label @, label @");
+}
 
 int emitCondition(string r1, string op, string r2) {
-    //cout << "DEBUG OP : " + op << endl;
     string resReg = freshReg();
     emit(resReg + " = " + getRelopOp(op) + r1 + ", " + r2);
-    return emit("br i1 " +  resReg + ", label @, label @");
+    return emitConditionFromResult(resReg);
 }
 
 int emitUnconditional() {
@@ -183,8 +185,11 @@ public:
         string resultReg = freshReg();
         emit(resultReg + " = " + getArithmeticOp(op, isSigned) + r1 + ", " + r2);
 
-        if (!isSigned) //todo - zext
-            emit("and i32 " + r1 + ", 255");
+        if (!isSigned) {
+            string oldReg = resultReg;
+            resultReg = freshReg();
+            emit(resultReg + " = and i32 " + oldReg + ", 255");
+        } //todo - zext
 
         return resultReg;
     }
